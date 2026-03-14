@@ -1,8 +1,14 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Alert
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView, Platform,
+  SafeAreaView,
+  StyleSheet,
+  Text, TextInput, TouchableOpacity,
+  View
 } from 'react-native';
 
 const API_URL = 'https://web-production-cfc01.up.railway.app/api/v1';
@@ -26,7 +32,10 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (res.ok) {
-        Alert.alert('✅ Bienvenida', `Hola ${data.data.user.username}!`);
+        await AsyncStorage.setItem('access_token', data.data.access_token);
+        await AsyncStorage.setItem('refresh_token', data.data.refresh_token);
+        await AsyncStorage.setItem('user', JSON.stringify(data.data.user));
+        router.replace('/biblioteca');
       } else {
         Alert.alert('Error', data.message || 'Credenciales incorrectas.');
       }
