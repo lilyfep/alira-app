@@ -1,53 +1,58 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// ─── Alira Design System ───────────────────────────────────────────────────
+// Espejo exacto de los CSS vars de la web
 
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  bg:      '#0b1220',
+  card:    '#111a2e',
+  text:    '#e8eefc',
+  muted:   '#a9b7d6',
+  accent:  '#7aa2ff',
+  danger:  '#ff5b6e',
+  success: '#22c55e',
+  warning: '#f59e0b',
+  border:  'rgba(255,255,255,0.08)',
+  overlay: 'rgba(0,0,0,0.55)',
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export const Radius = {
+  sm:  10,
+  md:  14,
+  lg:  18,
+  xl:  22,
+  full: 999,
+};
+
+export const Spacing = {
+  xs:  4,
+  sm:  8,
+  md:  14,
+  lg:  20,
+  xl:  32,
+};
+
+// Estado → color + label
+export const ESTADO_META: Record<string, { color: string; label: string }> = {
+  leido:    { color: '#22c55e', label: '✓ Leído' },
+  leyendo:  { color: '#7aa2ff', label: '📖 Leyendo' },
+  pendiente:{ color: '#f59e0b', label: '⏳ Pendiente' },
+};
+
+export const UBICACION_OPTIONS = [
+  { value: 'estanteria', label: '🏠 Estantería' },
+  { value: 'prestado',   label: '🤝 Prestado' },
+  { value: 'digital',    label: '📱 Digital' },
+  { value: 'vendido',    label: '💰 Vendido' },
+  { value: 'perdido',    label: '🔍 Perdido' },
+];
+
+export const ESTADO_OPTIONS = [
+  { value: 'pendiente', label: 'Pendiente' },
+  { value: 'leyendo',   label: 'Leyendo' },
+  { value: 'leido',     label: 'Leído' },
+];
+
+export const PRIORIDAD_OPTIONS = [
+  { value: 'alta',  label: '🔴 Alta' },
+  { value: 'media', label: '🟡 Media' },
+  { value: 'baja',  label: '🟢 Baja' },
+];
