@@ -5,10 +5,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Animated, FlatList, Image, Modal,
+  ActivityIndicator, Alert, Animated, FlatList, Image, Linking, Modal,
   Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+
+const API_BASE = 'https://web-production-cfc01.up.railway.app';
 
 interface Book {
   id: number; title: string; author: string; cover: string;
@@ -66,10 +68,10 @@ export default function ColeccionScreen() {
 
   const loadBooks = useCallback(async () => {
     const token = await AsyncStorage.getItem('access_token');
-    if (!token) { router.replace('/'); return; }
+    if (!token) { router.replace('/login'); return; }
     const { ok, data } = await api.getBooks();
     if (ok) setBooks(data.data?.books || []);
-    else if (data?.message === 'Sesión expirada') router.replace('/');
+    else if (data?.message === 'Sesión expirada') router.replace('/login');
   }, []);
 
   useEffect(() => { loadBooks().finally(() => setLoading(false)); }, [loadBooks]);
@@ -79,6 +81,21 @@ export default function ColeccionScreen() {
     await loadBooks();
     setRefreshing(false);
   }, [loadBooks]);
+
+  const exportar = async () => {
+    const token = await AsyncStorage.getItem('access_token');
+    if (!token) return;
+    // Abre la exportación en el navegador con el token
+    const url = `${API_BASE}/export.xlsx`;
+    Alert.alert(
+      'Exportar colección',
+      'Se abrirá tu navegador para descargar el Excel con tu colección.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Exportar', onPress: () => Linking.openURL('https://www.aliraspace.com/coleccion') },
+      ]
+    );
+  };
 
   const filtered = books.filter(b => {
     const matchEstado = filter === 'todos' || b.estado === filter;
@@ -133,6 +150,7 @@ export default function ColeccionScreen() {
     if (ok) {
       setBooks(prev => prev.map(b => b.id === selectedBook.id ? { ...b, ...payload } : b));
       closeModal();
+      Alert.alert('✅ Guardado', 'Los cambios se han guardado correctamente.');
     } else {
       Alert.alert('Error', data?.message || 'No se pudo guardar.');
     }
@@ -167,14 +185,19 @@ export default function ColeccionScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Header */}
+      {/* Header con botón exportar */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>📚 Mi Colección</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Chip label={`${stats.leidos} leídos`}   color={Colors.success} />
-          <Chip label={`${stats.leyendo} leyendo`} color={Colors.accent} />
-          <Chip label={`${stats.pendiente} pend.`} color={Colors.warning} />
+        <View>
+          <Text style={s.headerTitle}>📚 Mi Colección</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+            <Chip label={`${stats.leidos} leídos`}   color={Colors.success} />
+            <Chip label={`${stats.leyendo} leyendo`} color={Colors.accent} />
+            <Chip label={`${stats.pendiente} pend.`} color={Colors.warning} />
+          </View>
         </View>
+        <TouchableOpacity style={s.exportBtn} onPress={exportar}>
+          <Text style={s.exportBtnText}>⬇ Excel</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search */}
@@ -189,7 +212,7 @@ export default function ColeccionScreen() {
           </TouchableOpacity>}
       </View>
 
-      {/* Filtros compactos — ScrollView horizontal sin altura expandida */}
+      {/* Filtros */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.filtersRow} style={{ flexGrow: 0 }}>
         {ESTADOS_FILTER.map(f => (
@@ -212,7 +235,8 @@ export default function ColeccionScreen() {
             <Text style={{ color: Colors.muted }}>Sin resultados</Text>
           </View>
         : <FlatList data={filtered} keyExtractor={i => i.id.toString()}
-            renderItem={renderBook} contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 40 }}
+            renderItem={renderBook}
+            contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 40 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
           />}
 
@@ -227,7 +251,6 @@ export default function ColeccionScreen() {
               <ScrollView showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
-                {/* Head */}
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.mTitle} numberOfLines={2}>{selectedBook?.title}</Text>
@@ -239,7 +262,6 @@ export default function ColeccionScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Portada + meta */}
                 <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
                   {selectedBook?.cover
                     ? <Image source={{ uri: selectedBook.cover }} style={s.mCover} />
@@ -259,7 +281,6 @@ export default function ColeccionScreen() {
 
                 <View style={{ height: 1, backgroundColor: Colors.border, marginBottom: 18 }} />
 
-                {/* Estado */}
                 <Text style={s.sLabel}>Estado de lectura</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                   {ESTADO_OPTIONS.map(o => (
@@ -271,7 +292,6 @@ export default function ColeccionScreen() {
                   ))}
                 </View>
 
-                {/* Fechas lectura */}
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.fLabel}>Inicio</Text>
@@ -285,7 +305,6 @@ export default function ColeccionScreen() {
                   </View>
                 </View>
 
-                {/* Valoración */}
                 <Text style={s.sLabel}>Valoración</Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
                   {[1,2,3,4,5].map(n => (
@@ -295,7 +314,6 @@ export default function ColeccionScreen() {
                   ))}
                 </View>
 
-                {/* Prioridad */}
                 <Text style={s.sLabel}>Prioridad</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                   {[{ value: '', label: 'Sin prioridad' }, ...PRIORIDAD_OPTIONS].map(o => (
@@ -307,14 +325,12 @@ export default function ColeccionScreen() {
                   ))}
                 </View>
 
-                {/* Comentarios */}
                 <Text style={s.sLabel}>Comentarios</Text>
                 <TextInput style={[s.fInput, { minHeight: 80, paddingTop: 11, marginBottom: 14 }]}
                   value={editComentarios} onChangeText={setEditComentarios}
                   placeholder="Tus notas sobre este libro..." placeholderTextColor={Colors.muted}
                   multiline numberOfLines={3} textAlignVertical="top" />
 
-                {/* Ubicación */}
                 <Text style={s.sLabel}>Ubicación</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -328,7 +344,6 @@ export default function ColeccionScreen() {
                   </View>
                 </ScrollView>
 
-                {/* Prestado → nombre + fecha */}
                 {editUbicacion === 'prestado' && (
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
@@ -344,7 +359,6 @@ export default function ColeccionScreen() {
                   </View>
                 )}
 
-                {/* Vendido → precio + fecha */}
                 {editUbicacion === 'vendido' && (
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
@@ -395,8 +409,12 @@ function MRow({ icon, label }: { icon: string; label: string }) {
 const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  header:      { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 8 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: 8 },
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+                 paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 8 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.text },
+  exportBtn:   { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
+                 borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 8 },
+  exportBtnText:{ color: Colors.muted, fontSize: 13, fontWeight: '600' },
   searchWrap:  { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.lg,
                  backgroundColor: Colors.card, borderRadius: Radius.md,
                  borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },

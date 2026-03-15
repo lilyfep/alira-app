@@ -1,9 +1,19 @@
 // app/(tabs)/_layout.tsx
 import { Colors } from '@/constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Platform, Text } from 'react-native';
 
 export default function TabLayout() {
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem('user').then(u => {
+      if (u) setIsAdmin(JSON.parse(u).is_admin === true);
+    });
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
@@ -21,45 +31,26 @@ export default function TabLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
-      <Tabs.Screen
-        name="buscar"
-        options={{
-          title: 'Buscar',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>🔍</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="coleccion"
-        options={{
-          title: 'Colección',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>📚</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="wishreads"
-        options={{
-          title: 'Wishreads',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>✨</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>👤</Text>
-          ),
-        }}
-      />
-      {/* Ocultar tabs heredadas del template */}
+      <Tabs.Screen name="buscar"    options={{ title: 'Buscar',    tabBarIcon: ({ focused }) => <TI e="🔍" f={focused} /> }} />
+      <Tabs.Screen name="coleccion" options={{ title: 'Colección', tabBarIcon: ({ focused }) => <TI e="📚" f={focused} /> }} />
+      <Tabs.Screen name="wishreads" options={{ title: 'Wishreads', tabBarIcon: ({ focused }) => <TI e="✨" f={focused} /> }} />
+      <Tabs.Screen name="perfil"    options={{ title: 'Perfil',    tabBarIcon: ({ focused }) => <TI e="👤" f={focused} /> }} />
+      <Tabs.Screen name="premium"   options={{ title: 'Alira+',   tabBarIcon: ({ focused }) => <TI e="⭐" f={focused} /> }} />
+
+      {/* Tab admin — solo si is_admin */}
+      <Tabs.Screen name="admin" options={
+        isAdmin
+          ? { title: 'Admin', tabBarIcon: ({ focused }) => <TI e="⚡" f={focused} /> }
+          : { href: null }
+      } />
+
+      {/* Ocultar tabs del template */}
       <Tabs.Screen name="index"   options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
+}
+
+function TI({ e, f }: { e: string; f: boolean }) {
+  return <Text style={{ fontSize: 20, opacity: f ? 1 : 0.5 }}>{e}</Text>;
 }
