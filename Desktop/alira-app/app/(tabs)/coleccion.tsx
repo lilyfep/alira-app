@@ -10,7 +10,7 @@ import {
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
-const API_BASE = 'https://web-production-cfc01.up.railway.app';
+const AMAZON_TAG = 'alirabooks-21';
 
 interface Book {
   id: number; title: string; author: string; cover: string;
@@ -82,19 +82,11 @@ export default function ColeccionScreen() {
     setRefreshing(false);
   }, [loadBooks]);
 
-  const exportar = async () => {
-    const token = await AsyncStorage.getItem('access_token');
-    if (!token) return;
-    // Abre la exportación en el navegador con el token
-    const url = `${API_BASE}/export.xlsx`;
-    Alert.alert(
-      'Exportar colección',
-      'Se abrirá tu navegador para descargar el Excel con tu colección.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Exportar', onPress: () => Linking.openURL('https://www.aliraspace.com/coleccion') },
-      ]
-    );
+  const exportar = () => {
+    Alert.alert('Exportar colección', 'Se abrirá tu navegador para descargar el Excel.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Exportar', onPress: () => Linking.openURL('https://www.aliraspace.com/export.xlsx') },
+    ]);
   };
 
   const filtered = books.filter(b => {
@@ -150,10 +142,15 @@ export default function ColeccionScreen() {
     if (ok) {
       setBooks(prev => prev.map(b => b.id === selectedBook.id ? { ...b, ...payload } : b));
       closeModal();
-      Alert.alert('✅ Guardado', 'Los cambios se han guardado correctamente.');
+      Alert.alert('✅ Guardado', 'Los cambios se han guardado.');
     } else {
       Alert.alert('Error', data?.message || 'No se pudo guardar.');
     }
+  };
+
+  const abrirAmazon = (title: string, author: string) => {
+    const q = encodeURIComponent(`${title} ${author}`.trim());
+    Linking.openURL(`https://www.amazon.es/s?k=${q}&tag=${AMAZON_TAG}`);
   };
 
   const renderBook = ({ item }: { item: Book }) => {
@@ -185,7 +182,6 @@ export default function ColeccionScreen() {
 
   return (
     <SafeAreaView style={s.container}>
-      {/* Header con botón exportar */}
       <View style={s.header}>
         <View>
           <Text style={s.headerTitle}>📚 Mi Colección</Text>
@@ -200,7 +196,6 @@ export default function ColeccionScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Search */}
       <View style={s.searchWrap}>
         <Text style={{ paddingLeft: 12, fontSize: 14 }}>🔍</Text>
         <TextInput style={s.searchInput} placeholder="Buscar en tu colección..."
@@ -212,7 +207,6 @@ export default function ColeccionScreen() {
           </TouchableOpacity>}
       </View>
 
-      {/* Filtros */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}
         contentContainerStyle={s.filtersRow} style={{ flexGrow: 0 }}>
         {ESTADOS_FILTER.map(f => (
@@ -238,9 +232,14 @@ export default function ColeccionScreen() {
             renderItem={renderBook}
             contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 40 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            initialNumToRender={8}
+            getItemLayout={(_, index) => ({ length: 108, offset: 108 * index, index })}
           />}
 
-      {/* ── Modal ── */}
+      {/* Modal — scroll fix con nestedScrollEnabled */}
       <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
         <Pressable style={s.overlay} onPress={closeModal}>
           <Animated.View style={[s.modalCard, {
@@ -248,9 +247,13 @@ export default function ColeccionScreen() {
             transform: [{ translateY: modalAnim.interpolate({ inputRange:[0,1], outputRange:[60,0] }) }],
           }]}>
             <Pressable onPress={e => e.stopPropagation()}>
-              <ScrollView showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+                keyboardShouldPersistTaps="handled"
+                bounces={true}
+                nestedScrollEnabled={true}
+              >
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.mTitle} numberOfLines={2}>{selectedBook?.title}</Text>
@@ -306,14 +309,24 @@ export default function ColeccionScreen() {
                 </View>
 
                 <Text style={s.sLabel}>Valoración</Text>
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-                  {[1,2,3,4,5].map(n => (
-                    <TouchableOpacity key={n} onPress={() => setEditValoracion(editValoracion === n ? 0 : n)}>
-                      <Text style={{ fontSize: 26, opacity: n <= editValoracion ? 1 : 0.2 }}>⭐</Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    {[1,2,3,4,5].map(n => (
+                      <TouchableOpacity key={n} onPress={() => setEditValoracion(editValoracion === n ? 0 : n)}>
+                        <Text style={{ fontSize: 26, opacity: n <= editValoracion ? 1 : 0.2 }}>⭐</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TouchableOpacity
+                    style={{ backgroundColor: '#FF990022', borderRadius: Radius.md, borderWidth: 1,
+                            borderColor: '#FF9900', padding: 8,
+                            width: 64, alignItems: 'center', justifyContent: 'center' }}
+                    onPress={() => selectedBook && abrirAmazon(selectedBook.title, selectedBook.author)}>
+                    <Text style={{ fontSize: 22 }}>🎁</Text>
+                    <Text style={{ fontSize: 10, color: '#FF9900', fontWeight: '700', marginTop: 2 }}>Comprar</Text>
+                  </TouchableOpacity>
                 </View>
-
+                
                 <Text style={s.sLabel}>Prioridad</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
                   {[{ value: '', label: 'Sin prioridad' }, ...PRIORIDAD_OPTIONS].map(o => (
@@ -332,17 +345,15 @@ export default function ColeccionScreen() {
                   multiline numberOfLines={3} textAlignVertical="top" />
 
                 <Text style={s.sLabel}>Ubicación</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {UBICACION_OPTIONS.map(o => (
-                      <TouchableOpacity key={o.value}
-                        style={[s.chip, editUbicacion === o.value && s.chipActive]}
-                        onPress={() => setEditUbicacion(o.value)}>
-                        <Text style={[s.chipText, editUbicacion === o.value && { color: Colors.accent }]}>{o.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                  {UBICACION_OPTIONS.map(o => (
+                    <TouchableOpacity key={o.value}
+                      style={[s.chip, editUbicacion === o.value && s.chipActive]}
+                      onPress={() => setEditUbicacion(o.value)}>
+                      <Text style={[s.chipText, editUbicacion === o.value && { color: Colors.accent }]}>{o.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
                 {editUbicacion === 'prestado' && (
                   <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -374,10 +385,11 @@ export default function ColeccionScreen() {
                   </View>
                 )}
 
+                {/* Botones acción */}
                 <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.6 }]}
                   onPress={saveBook} disabled={saving}>
                   {saving ? <ActivityIndicator color={Colors.bg} />
-                    : <Text style={{ color: Colors.bg, fontSize: 16, fontWeight: '800' }}>Guardar cambios</Text>}
+                    : <Text style={s.saveBtnText}>Guardar cambios</Text>}
                 </TouchableOpacity>
 
               </ScrollView>
@@ -407,47 +419,52 @@ function MRow({ icon, label }: { icon: string; label: string }) {
 }
 
 const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.bg },
-  centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-                 paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 8 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: Colors.text },
-  exportBtn:   { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
-                 borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 8 },
+  container:    { flex: 1, backgroundColor: Colors.bg },
+  centered:     { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
+  header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
+                  paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 8 },
+  headerTitle:  { fontSize: 22, fontWeight: '800', color: Colors.text },
+  exportBtn:    { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
+                  borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 8 },
   exportBtnText:{ color: Colors.muted, fontSize: 13, fontWeight: '600' },
-  searchWrap:  { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.lg,
-                 backgroundColor: Colors.card, borderRadius: Radius.md,
-                 borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 14, padding: 11 },
-  filtersRow:  { paddingHorizontal: Spacing.lg, gap: 8, paddingBottom: 10, paddingTop: 2 },
-  chip:        { paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full,
-                 borderWidth: 1, borderColor: Colors.border },
-  chipActive:  { backgroundColor: Colors.accent + '22', borderColor: Colors.accent + '55' },
-  chipText:    { color: Colors.muted, fontSize: 13, fontWeight: '600' },
-  countText:   { color: Colors.muted, fontSize: 12, paddingHorizontal: Spacing.lg, marginBottom: 8 },
-  bookCard:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card,
-                 borderRadius: Radius.lg, padding: 12, marginBottom: 10,
-                 borderWidth: 1, borderColor: Colors.border },
-  cover:       { width: 58, height: 84, borderRadius: Radius.sm },
-  nocover:     { backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
-  bookInfo:    { flex: 1, marginLeft: 12, gap: 3 },
-  bookTitle:   { fontSize: 15, fontWeight: '700', color: Colors.text },
-  bookAuthor:  { fontSize: 13, color: Colors.muted },
-  badge:       { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  badgeText:   { fontSize: 12, fontWeight: '600' },
-  overlay:     { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
-  modalCard:   { backgroundColor: Colors.card, borderTopLeftRadius: Radius.xl,
-                 borderTopRightRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border,
-                 maxHeight: '92%', padding: Spacing.lg },
-  mTitle:      { fontSize: 17, fontWeight: '900', color: Colors.text },
-  mAuthor:     { fontSize: 13, color: Colors.muted, marginTop: 3 },
-  mCover:      { width: 80, height: 118, borderRadius: Radius.md },
-  sLabel:      { fontSize: 11, fontWeight: '700', color: Colors.muted,
-                 textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  fLabel:      { fontSize: 12, color: Colors.muted, marginBottom: 5 },
-  fInput:      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
-                 borderWidth: 1, borderColor: Colors.border,
-                 color: Colors.text, padding: 11, fontSize: 14, marginBottom: 14 },
-  saveBtn:     { backgroundColor: Colors.accent, borderRadius: Radius.md,
-                 padding: 15, alignItems: 'center', marginTop: 6 },
+  searchWrap:   { flexDirection: 'row', alignItems: 'center', marginHorizontal: Spacing.lg,
+                  backgroundColor: Colors.card, borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: Colors.border, marginBottom: 10 },
+  searchInput:  { flex: 1, color: Colors.text, fontSize: 14, padding: 11 },
+  filtersRow:   { paddingHorizontal: Spacing.lg, gap: 8, paddingBottom: 10, paddingTop: 2 },
+  chip:         { paddingHorizontal: 12, paddingVertical: 7, borderRadius: Radius.full,
+                  borderWidth: 1, borderColor: Colors.border },
+  chipActive:   { backgroundColor: Colors.accent + '22', borderColor: Colors.accent + '55' },
+  chipText:     { color: Colors.muted, fontSize: 13, fontWeight: '600' },
+  countText:    { color: Colors.muted, fontSize: 12, paddingHorizontal: Spacing.lg, marginBottom: 8 },
+  bookCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card,
+                  borderRadius: Radius.lg, padding: 12, marginBottom: 10,
+                  borderWidth: 1, borderColor: Colors.border },
+  cover:        { width: 58, height: 84, borderRadius: Radius.sm },
+  nocover:      { backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+  bookInfo:     { flex: 1, marginLeft: 12, gap: 3 },
+  bookTitle:    { fontSize: 15, fontWeight: '700', color: Colors.text },
+  bookAuthor:   { fontSize: 13, color: Colors.muted },
+  badge:        { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  badgeText:    { fontSize: 12, fontWeight: '600' },
+  overlay:      { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
+  modalCard:    { backgroundColor: Colors.card, borderTopLeftRadius: Radius.xl,
+                  borderTopRightRadius: Radius.xl, borderWidth: 1, borderColor: Colors.border,
+                  maxHeight: '92%', padding: Spacing.lg },
+  mTitle:       { fontSize: 17, fontWeight: '900', color: Colors.text },
+  mAuthor:      { fontSize: 13, color: Colors.muted, marginTop: 3 },
+  mCover:       { width: 80, height: 118, borderRadius: Radius.md },
+  sLabel:       { fontSize: 11, fontWeight: '700', color: Colors.muted,
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  fLabel:       { fontSize: 12, color: Colors.muted, marginBottom: 5 },
+  fInput:       { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: Colors.border,
+                  color: Colors.text, padding: 11, fontSize: 14, marginBottom: 14 },
+  saveBtn:      { backgroundColor: Colors.accent, borderRadius: Radius.md,
+                  padding: 14, alignItems: 'center' },
+  saveBtnText:  { color: Colors.bg, fontSize: 15, fontWeight: '800' },
+  amazonModalBtn:  { backgroundColor: '#FF990022', borderRadius: Radius.md, borderWidth: 1,
+                     borderColor: '#FF9900', padding: 14, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  amazonModalIcon: { fontSize: 18 },
+  amazonModalText: { color: '#FF9900', fontSize: 11, fontWeight: '800' },
 });
