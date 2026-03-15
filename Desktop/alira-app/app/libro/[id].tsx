@@ -7,9 +7,9 @@ import { api } from '@/lib/api';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator, Alert, Image, KeyboardAvoidingView,
-    Linking, Platform, SafeAreaView, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView,
+  Linking, Platform, SafeAreaView, ScrollView, StyleSheet,
+  Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
 const AMAZON_TAG = 'alirabooks-21';
@@ -149,9 +149,7 @@ export default function LibroScreen() {
             </View>
           </View>
 
-          {book.description ? (
-            <Text style={s.desc}>{book.description}</Text>
-          ) : null}
+          {book.description ? <ExpandableDesc text={book.description} /> : null}
 
           <View style={s.divider} />
 
@@ -283,6 +281,20 @@ function InfoRow({ icon, label }: { icon: string; label: string }) {
   );
 }
 
+function ExpandableDesc({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={{ marginBottom: 16 }}>
+      <Text style={s.desc} numberOfLines={expanded ? undefined : 3}>{text}</Text>
+      <TouchableOpacity onPress={() => setExpanded(v => !v)} style={{ marginTop: 4 }}>
+        <Text style={{ color: Colors.accent, fontSize: 13, fontWeight: '700' }}>
+          {expanded ? 'Ver menos ↑' : 'Ver más ↓'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
@@ -313,7 +325,7 @@ const s = StyleSheet.create({
   pillText:  { color: Colors.muted, fontSize: 14, fontWeight: '600' },
   row2:      { flexDirection: 'row', gap: 10 },
   amazonBtn: { backgroundColor: '#FF990022', borderRadius: Radius.md, borderWidth: 1,
-               borderColor: '#FF9900', padding: 8, width: 64,
+               borderColor: '#FF9900', padding: 8, width: 68,
                alignItems: 'center', justifyContent: 'center' },
   amazonBtnText: { color: '#FF9900', fontSize: 10, fontWeight: '800', marginTop: 2 },
   saveBtn:   { backgroundColor: Colors.accent, borderRadius: Radius.md,
