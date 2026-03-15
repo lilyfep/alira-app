@@ -198,10 +198,10 @@ export default function LibroScreen() {
           {/* Prioridad */}
           <Text style={s.sLabel}>Prioridad</Text>
           <View style={s.pillRow}>
-            {[{ value: '', label: 'Sin prioridad' }, ...PRIORIDAD_OPTIONS].map(o => (
+            {PRIORIDAD_OPTIONS.map(o => (
               <TouchableOpacity key={o.value}
                 style={[s.pill, editPrioridad === o.value && s.pillActive]}
-                onPress={() => setEditPrioridad(o.value)}>
+                onPress={() => setEditPrioridad(editPrioridad === o.value ? '' : o.value)}>
                 <Text style={[s.pillText, editPrioridad === o.value && { color: Colors.accent }]}>{o.label}</Text>
               </TouchableOpacity>
             ))}
@@ -220,7 +220,7 @@ export default function LibroScreen() {
             {UBICACION_OPTIONS.map(o => (
               <TouchableOpacity key={o.value}
                 style={[s.pill, editUbicacion === o.value && s.pillActive]}
-                onPress={() => setEditUbicacion(o.value)}>
+                onPress={() => setEditUbicacion(editUbicacion === o.value ? '' : o.value)}>
                 <Text style={[s.pillText, editUbicacion === o.value && { color: Colors.accent }]}>{o.label}</Text>
               </TouchableOpacity>
             ))}
