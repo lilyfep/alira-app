@@ -1,11 +1,15 @@
 // app/libro/[id].tsx
-// Paridad total con coleccion.html:
-// Estado, valoración, prioridad, fechas inicio/fin
-// Categoría (picker), idioma, ubicación, prestado, vendido
-// Alta, baja, comentarios, eliminar libro
+// Paridad total con coleccion.html + notificaciones push
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, apiFetch } from '@/lib/api';
+import {
+  cancelarRecordatorioLeyendo,
+  notifyLibroTerminado,
+  notifyObjetivoCompletado,
+  programarRecordatorioLeyendo,
+} from '@/lib/notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -59,12 +63,12 @@ const PRIORIDAD_OPTIONS = [
 
 export default function LibroScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [book, setBook]       = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
+  const [book, setBook]         = useState<any>(null);
+  const [allBooks, setAllBooks] = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Campos editables
   const [editEstado,        setEditEstado]        = useState('pendiente');
   const [editValoracion,    setEditValoracion]    = useState(0);
   const [editPrioridad,     setEditPrioridad]     = useState('');
@@ -86,7 +90,9 @@ export default function LibroScreen() {
   const loadBook = async () => {
     const { ok, data } = await api.getBooks();
     if (ok) {
-      const found = (data.data?.books || []).find((b: any) => String(b.id) === String(id));
+      const books = data.data?.books || [];
+      setAllBooks(books);
+      const found = books.find((b: any) => String(b.id) === String(id));
       if (found) {
         setBook(found);
         setEditEstado(found.estado || 'pendiente');
@@ -112,25 +118,53 @@ export default function LibroScreen() {
   const saveBook = async () => {
     if (!book) return;
     setSaving(true);
+
+    const eraLeido    = book.estado === 'leido';
+    const ahoraLeido  = editEstado === 'leido';
+    const recienLeido = !eraLeido && ahoraLeido;
+
     const { ok, data } = await api.updateBook(book.id, {
-      estado:         editEstado,
-      valoracion:     editValoracion,
-      prioridad:      editPrioridad,
-      fecha_inicio:   editFechaInicio || null,
-      fecha_fin:      editFechaFin || null,
-      category:       editCategoria,
-      language:       editIdioma,
-      ubicacion:      editUbicacion,
-      prestado_a:     editPrestadoA,
-      fecha_prestamo: editFechaPrestamo || null,
-      precio_venta:   editPrecioVenta ? parseFloat(editPrecioVenta) : null,
-      fecha_venta:    editFechaVenta || null,
-      alta:           editAlta || null,
-      baja:           editBaja,
-      comentarios:    editComentarios,
+      estado: editEstado, valoracion: editValoracion, prioridad: editPrioridad,
+      fecha_inicio: editFechaInicio || null, fecha_fin: editFechaFin || null,
+      category: editCategoria, language: editIdioma, ubicacion: editUbicacion,
+      prestado_a: editPrestadoA, fecha_prestamo: editFechaPrestamo || null,
+      precio_venta: editPrecioVenta ? parseFloat(editPrecioVenta) : null,
+      fecha_venta: editFechaVenta || null, alta: editAlta || null,
+      baja: editBaja, comentarios: editComentarios,
     });
+
     setSaving(false);
+
     if (ok) {
+      // ── Notificaciones al terminar un libro ──────────────────────────────
+      if (recienLeido) {
+        // 1. Notificación inmediata: libro terminado
+        await notifyLibroTerminado(book.title);
+
+        // 2. Comprobar si se ha completado el objetivo
+        const objetivo   = parseInt(await AsyncStorage.getItem('objetivo_anual') || '12');
+        const thisYear   = new Date().getFullYear();
+        const leidosAnio = allBooks.filter(b => {
+          if (b.id === book.id) return true; // incluimos el que acabamos de terminar
+          if (b.estado !== 'leido' || !b.fecha_fin) return false;
+          return new Date(b.fecha_fin).getFullYear() === thisYear;
+        }).length;
+
+        if (leidosAnio >= objetivo) {
+          await notifyObjetivoCompletado(leidosAnio, objetivo);
+        }
+
+        // 3. Reprogramar recordatorio de libros leyendo
+        const leyendoActualizado = allBooks.filter(
+          b => b.estado === 'leyendo' && b.id !== book.id
+        );
+        if (leyendoActualizado.length > 0) {
+          await programarRecordatorioLeyendo(leyendoActualizado.map((b: any) => b.title));
+        } else {
+          await cancelarRecordatorioLeyendo();
+        }
+      }
+
       Alert.alert('✅ Guardado', 'Los cambios se han guardado.', [
         { text: 'OK', onPress: () => router.back() }
       ]);
@@ -167,7 +201,6 @@ export default function LibroScreen() {
     <SafeAreaView style={s.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
 
-        {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
             <Text style={s.backText}>← Volver</Text>
@@ -178,7 +211,6 @@ export default function LibroScreen() {
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
 
-          {/* Portada + info */}
           <View style={s.topRow}>
             {book.cover
               ? <Image source={{ uri: book.cover }} style={s.cover} />
@@ -192,7 +224,6 @@ export default function LibroScreen() {
 
           {book.description ? <ExpandableDesc text={book.description} /> : null}
 
-          {/* ── LECTURA ── */}
           <SectionLabel title="Lectura" />
 
           <Text style={s.fLabel}>Estado</Text>
@@ -249,7 +280,6 @@ export default function LibroScreen() {
             </View>
           </View>
 
-          {/* ── LIBRO ── */}
           <SectionLabel title="Libro" />
 
           <Text style={s.fLabel}>Categoría</Text>
@@ -274,7 +304,6 @@ export default function LibroScreen() {
             ))}
           </View>
 
-          {/* ── UBICACIÓN ── */}
           <SectionLabel title="¿Dónde está este libro?" />
 
           <View style={s.pillRow}>
@@ -317,7 +346,6 @@ export default function LibroScreen() {
             </View>
           )}
 
-          {/* ── COLECCIÓN ── */}
           <SectionLabel title="Colección" />
 
           <View style={s.row2}>
@@ -339,14 +367,12 @@ export default function LibroScreen() {
             placeholder="Notas, opinión, cita favorita…" placeholderTextColor={Colors.muted}
             multiline numberOfLines={4} textAlignVertical="top" />
 
-          {/* Guardar */}
           <TouchableOpacity style={[s.saveBtn, saving && { opacity: 0.6 }]}
             onPress={saveBook} disabled={saving}>
             {saving ? <ActivityIndicator color={Colors.bg} />
               : <Text style={s.saveBtnText}>Guardar cambios</Text>}
           </TouchableOpacity>
 
-          {/* Eliminar */}
           <TouchableOpacity style={[s.deleteBtn, deleting && { opacity: 0.6 }]}
             onPress={eliminarLibro} disabled={deleting}>
             {deleting ? <ActivityIndicator color={Colors.danger} />
@@ -359,7 +385,6 @@ export default function LibroScreen() {
   );
 }
 
-// ── Sub-componentes ───────────────────────────────────────────────────────────
 function SectionLabel({ title }: { title: string }) {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(122,162,255,0.15)',
