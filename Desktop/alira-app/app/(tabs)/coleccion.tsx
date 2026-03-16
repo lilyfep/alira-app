@@ -46,6 +46,7 @@ export default function ColeccionScreen() {
   const [filterLang, setFilterLang] = useState('');
   const [filterUbic, setFilterUbic] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [vista, setVista] = useState<'lista'|'grid'>('lista');
 
   const loadBooks = useCallback(async () => {
     const token = await AsyncStorage.getItem('access_token');
@@ -56,6 +57,11 @@ export default function ColeccionScreen() {
   }, []);
 
   useEffect(() => { loadBooks().finally(() => setLoading(false)); }, [loadBooks]);
+  useEffect(() => {
+    AsyncStorage.getItem('vista_coleccion').then(v => {
+      if (v === 'grid' || v === 'lista') setVista(v as 'grid'|'lista');
+    });
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -87,6 +93,12 @@ export default function ColeccionScreen() {
     leidos:    books.filter(b => b.estado === 'leido').length,
     leyendo:   books.filter(b => b.estado === 'leyendo').length,
     pendiente: books.filter(b => b.estado === 'pendiente').length,
+  };
+
+  const toggleVista = async () => {
+    const nueva = vista === 'lista' ? 'grid' : 'lista';
+    setVista(nueva);
+    await AsyncStorage.setItem('vista_coleccion', nueva);
   };
 
   const exportar = () => {
@@ -123,6 +135,21 @@ export default function ColeccionScreen() {
     );
   };
 
+  const renderBookGrid = ({ item }: { item: Book }) => {
+    const meta = ESTADO_META[item.estado] || { color: Colors.muted, label: item.estado };
+    return (
+      <TouchableOpacity style={s.gridCard}
+        onPress={() => router.push(`/libro/${item.id}`)} activeOpacity={0.75}>
+        {item.cover
+          ? <Image source={{ uri: item.cover }} style={s.gridCover} />
+          : <View style={[s.gridCover, s.nocover]}><Text style={{ fontSize: 28 }}>📚</Text></View>}
+        <View style={[s.gridDot, { backgroundColor: meta.color }]} />
+        <Text style={s.gridTitle} numberOfLines={2}>{item.title}</Text>
+        <Text style={s.gridAuthor} numberOfLines={1}>{item.author}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) return <View style={s.centered}><ActivityIndicator size="large" color={Colors.accent} /></View>;
 
   return (
@@ -137,6 +164,9 @@ export default function ColeccionScreen() {
             <Chip label={`${stats.pendiente} pend.`} color={Colors.warning} />
           </View>
         </View>
+        <TouchableOpacity style={s.vistaBtn} onPress={toggleVista}>
+          <Text style={{ fontSize: 18 }}>{vista === 'lista' ? '⊞' : '☰'}</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={s.exportBtn} onPress={exportar}>
           <Text style={s.exportBtnText}>⬇ Excel</Text>
         </TouchableOpacity>
@@ -199,8 +229,11 @@ export default function ColeccionScreen() {
         : <FlatList
             data={filtered}
             keyExtractor={i => i.id.toString()}
-            renderItem={renderBook}
-            contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 40 }}
+            renderItem={vista === 'lista' ? renderBook : renderBookGrid}
+            numColumns={vista === 'grid' ? 2 : 1}
+            key={vista}
+            columnWrapperStyle={vista === 'grid' ? { gap: 10, paddingHorizontal: Spacing.lg } : undefined}
+            contentContainerStyle={{ paddingHorizontal: vista === 'lista' ? Spacing.lg : 0, paddingBottom: 40 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />}
             removeClippedSubviews={true}
             maxToRenderPerBatch={10}
@@ -326,6 +359,15 @@ const s = StyleSheet.create({
   chipActive:    { backgroundColor: Colors.accent + '22', borderColor: Colors.accent + '55' },
   chipText:      { color: Colors.muted, fontSize: 13, fontWeight: '600' },
   countText:     { color: Colors.muted, fontSize: 12, paddingHorizontal: Spacing.lg, marginBottom: 8 },
+
+  vistaBtn:   { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
+                borderColor: Colors.border, width: 42, alignItems: 'center', justifyContent: 'center' },
+  gridCard:   { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.lg,
+                borderWidth: 1, borderColor: Colors.border, marginBottom: 10, overflow: 'hidden' },
+  gridCover:  { width: '100%', height: 180 },
+  gridDot:    { position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5 },
+  gridTitle:  { fontSize: 12, fontWeight: '700', color: Colors.text, padding: 8, paddingBottom: 2 },
+  gridAuthor: { fontSize: 11, color: Colors.muted, paddingHorizontal: 8, paddingBottom: 8 },
 
   bookCard:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card,
                    borderRadius: Radius.lg, padding: 12, marginBottom: 10,

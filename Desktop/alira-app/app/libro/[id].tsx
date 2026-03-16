@@ -3,13 +3,7 @@
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, apiFetch } from '@/lib/api';
-import {
-  cancelarRecordatorioLeyendo,
-  notifyLibroTerminado,
-  notifyObjetivoCompletado,
-  programarRecordatorioLeyendo,
-} from '@/lib/notifications';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkAndNotify } from '@/lib/notifications';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -136,33 +130,8 @@ export default function LibroScreen() {
     setSaving(false);
 
     if (ok) {
-      // ── Notificaciones al terminar un libro ──────────────────────────────
       if (recienLeido) {
-        // 1. Notificación inmediata: libro terminado
-        await notifyLibroTerminado(book.title);
-
-        // 2. Comprobar si se ha completado el objetivo
-        const objetivo   = parseInt(await AsyncStorage.getItem('objetivo_anual') || '12');
-        const thisYear   = new Date().getFullYear();
-        const leidosAnio = allBooks.filter(b => {
-          if (b.id === book.id) return true; // incluimos el que acabamos de terminar
-          if (b.estado !== 'leido' || !b.fecha_fin) return false;
-          return new Date(b.fecha_fin).getFullYear() === thisYear;
-        }).length;
-
-        if (leidosAnio >= objetivo) {
-          await notifyObjetivoCompletado(leidosAnio, objetivo);
-        }
-
-        // 3. Reprogramar recordatorio de libros leyendo
-        const leyendoActualizado = allBooks.filter(
-          b => b.estado === 'leyendo' && b.id !== book.id
-        );
-        if (leyendoActualizado.length > 0) {
-          await programarRecordatorioLeyendo(leyendoActualizado.map((b: any) => b.title));
-        } else {
-          await cancelarRecordatorioLeyendo();
-        }
+        await checkAndNotify(allBooks, { libroRecienTerminado: book.title });
       }
 
       Alert.alert('✅ Guardado', 'Los cambios se han guardado.', [
