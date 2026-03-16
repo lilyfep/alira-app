@@ -204,9 +204,18 @@ export default function PerfilScreen() {
             <View style={[s.progressFill, { width: `${progreso * 100}%` as any }]} />
           </View>
           <Text style={s.progressPct}>
-            {Math.round(progreso * 100)}% completado
-            {stats.leidosEsteAnio >= objNum ? ' 🎉' : ''}
+            {Math.round(progreso * 100)}% completado{stats.leidosEsteAnio >= objNum ? ' 🎉' : ''}
           </Text>
+
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.accent + '16', borderRadius: Radius.md,
+                    borderWidth: 1, borderColor: Colors.accent + '33',
+                    padding: 14, alignItems: 'center', marginTop: 12 }}
+            onPress={() => router.push(`/resumen/${new Date().getFullYear()}`)}>
+            <Text style={{ color: Colors.accent, fontSize: 15, fontWeight: '700' }}>
+              📖 Ver resumen {new Date().getFullYear()}
+            </Text>
+          </TouchableOpacity>
         </Card>
 
         {/* Stats rápidas */}

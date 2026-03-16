@@ -44,8 +44,8 @@ export default function BuscarScreen() {
     });
   }, []);
 
-  const buscar = async (q?: string) => {
-    const term = (q || query).trim();
+  const buscar = async (override?: string) => {
+    const term = override || query.trim();
     if (!term) return;
     setLoading(true);
     setResults([]);
@@ -71,8 +71,10 @@ export default function BuscarScreen() {
     if (scanned.current) return;
     scanned.current = true;
     setScannerVisible(false);
-    setQuery(data);
-    buscar(data);
+    // Formato ISBN para Google Books
+    const isbnQuery = `isbn:${data}`;
+    setQuery(data); // mostramos el número limpio en el input
+    buscar(isbnQuery); // buscamos con prefijo isbn:
   };
 
   const añadirColeccion = async (item: SearchResult) => {
