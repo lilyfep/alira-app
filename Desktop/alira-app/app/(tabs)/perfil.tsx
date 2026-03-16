@@ -217,6 +217,29 @@ export default function PerfilScreen() {
             </Text>
           </TouchableOpacity>
         </Card>
+        {/* Acceso a Premium */}
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.warning + '16', borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: Colors.warning + '33',
+                  padding: 14, alignItems: 'center', marginBottom: 14 }}
+          onPress={() => router.push('/(tabs)/premium')}>
+          <Text style={{ color: Colors.warning, fontSize: 15, fontWeight: '700' }}>
+            ⭐ Alira+ — Ver planes
+          </Text>
+        </TouchableOpacity>
+
+        {/* Acceso a Admin — solo visible si es admin */}
+        {user?.es_admin && (
+          <TouchableOpacity
+            style={{ backgroundColor: Colors.accent + '16', borderRadius: Radius.md,
+                    borderWidth: 1, borderColor: Colors.accent + '33',
+                    padding: 14, alignItems: 'center', marginBottom: 14 }}
+            onPress={() => router.push('/(tabs)/admin')}>
+            <Text style={{ color: Colors.accent, fontSize: 15, fontWeight: '700' }}>
+              ⚡ Panel Admin
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Stats rápidas */}
         <View style={s.statsGrid}>

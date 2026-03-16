@@ -164,8 +164,12 @@ export default function ColeccionScreen() {
             <Chip label={`${stats.pendiente} pend.`} color={Colors.warning} />
           </View>
         </View>
-        <TouchableOpacity style={s.vistaBtn} onPress={toggleVista}>
-          <Text style={{ fontSize: 18 }}>{vista === 'lista' ? '⊞' : '☰'}</Text>
+        <TouchableOpacity
+          style={{ paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' }}
+          onPress={toggleVista}>
+          <Text style={{ fontSize: 22, color: Colors.text, opacity: 0.8 }}>
+            {vista === 'lista' ? '⊞' : '☰'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.exportBtn} onPress={exportar}>
           <Text style={s.exportBtnText}>⬇ Excel</Text>
