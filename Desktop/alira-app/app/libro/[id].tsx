@@ -260,8 +260,20 @@ export default function LibroScreen() {
                 <Text style={[s.pillSmText, editCategoria === c && { color: Colors.accent }]}>{c}</Text>
               </TouchableOpacity>
             ))}
+              <TouchableOpacity
+                style={[s.pillSm, !CATEGORIAS.includes(editCategoria) && editCategoria !== '' && s.pillActive]}
+                onPress={() => setEditCategoria('__custom__')}>
+                <Text style={s.pillSmText}>✏️ Otra</Text>
+              </TouchableOpacity>
           </View>
-
+            {(!CATEGORIAS.includes(editCategoria)) && (
+              <TextInput style={[s.fInput, { marginBottom: 14 }]}
+                value={editCategoria === '__custom__' ? '' : editCategoria}
+                onChangeText={setEditCategoria}
+                placeholder="Escribe tu categoría..."
+                placeholderTextColor={Colors.muted}
+                autoFocus />
+            )}
           <Text style={s.fLabel}>Idioma</Text>
           <View style={s.pillRow}>
             {IDIOMAS.map(i => (
@@ -271,6 +283,11 @@ export default function LibroScreen() {
                 <Text style={[s.pillSmText, editIdioma === i.value && { color: Colors.accent }]}>{i.label}</Text>
               </TouchableOpacity>
             ))}
+              <TouchableOpacity
+                style={[s.pillSm, !IDIOMAS.map(i=>i.value).includes(editIdioma) && editIdioma !== '' && s.pillActive]}
+                onPress={() => setEditIdioma('__custom__')}>
+                <Text style={s.pillSmText}>✏️ Otro</Text>
+              </TouchableOpacity>
           </View>
 
           <SectionLabel title="¿Dónde está este libro?" />
