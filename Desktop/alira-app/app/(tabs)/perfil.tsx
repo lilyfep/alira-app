@@ -217,6 +217,18 @@ export default function PerfilScreen() {
             </Text>
           </TouchableOpacity>
         </Card>
+
+        {/* Acceso a Mis Bibliotecas */}
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.card, borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: Colors.border,
+                  padding: 14, alignItems: 'center', marginBottom: 14 }}
+          onPress={() => router.push('/bibliotecas')}>
+          <Text style={{ color: Colors.text, fontSize: 15, fontWeight: '700' }}>
+            🗂 Mis Bibliotecas
+          </Text>
+        </TouchableOpacity>
+
         {/* Acceso a Premium */}
         <TouchableOpacity
           style={{ backgroundColor: Colors.warning + '16', borderRadius: Radius.md,
