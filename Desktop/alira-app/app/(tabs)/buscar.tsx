@@ -1,14 +1,16 @@
 // app/(tabs)/buscar.tsx
-// Búsqueda Google Books → añadir a colección o a Wishreads
+// Búsqueda Google Books + escáner ISBN con cámara
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, apiFetch } from '@/lib/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, Image,
-  SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, FlatList, Image, Modal,
+  SafeAreaView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View
 } from 'react-native';
 
 interface SearchResult {
@@ -23,15 +25,18 @@ interface SearchResult {
 }
 
 export default function BuscarScreen() {
-  const [query, setQuery]     = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  // Tracking por google_books_id
+  const [query, setQuery]       = useState('');
+  const [results, setResults]   = useState<SearchResult[]>([]);
+  const [loading, setLoading]   = useState(false);
   const [addedCol, setAddedCol]   = useState<Set<string>>(new Set());
   const [addedWish, setAddedWish] = useState<Set<string>>(new Set());
   const [addingCol, setAddingCol]   = useState<string | null>(null);
   const [addingWish, setAddingWish] = useState<string | null>(null);
-  const inputRef = useRef<TextInput>(null);
+
+  // Escáner ISBN
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [permission, requestPermission]     = useCameraPermissions();
+  const scanned = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem('access_token').then(t => {
@@ -39,15 +44,35 @@ export default function BuscarScreen() {
     });
   }, []);
 
-  const buscar = async () => {
-    const q = query.trim();
-    if (!q) return;
+  const buscar = async (q?: string) => {
+    const term = (q || query).trim();
+    if (!term) return;
     setLoading(true);
     setResults([]);
-    const { ok, data } = await api.search(q);
+    const { ok, data } = await api.search(term);
     setLoading(false);
     if (ok) setResults(data.data?.results || []);
     else Alert.alert('Error', 'No se pudo buscar. Comprueba tu conexión.');
+  };
+
+  const abrirScanner = async () => {
+    if (!permission?.granted) {
+      const { granted } = await requestPermission();
+      if (!granted) {
+        Alert.alert('Cámara', 'Necesitamos permiso para acceder a la cámara.');
+        return;
+      }
+    }
+    scanned.current = false;
+    setScannerVisible(true);
+  };
+
+  const onBarCodeScanned = ({ data }: { data: string }) => {
+    if (scanned.current) return;
+    scanned.current = true;
+    setScannerVisible(false);
+    setQuery(data);
+    buscar(data);
   };
 
   const añadirColeccion = async (item: SearchResult) => {
@@ -64,7 +89,14 @@ export default function BuscarScreen() {
     });
     setAddingCol(null);
     if (ok) setAddedCol(prev => new Set([...prev, id]));
-    else Alert.alert('Error', data?.message || 'No se pudo añadir el libro.');
+    else if (data?.message?.includes('límite')) {
+      Alert.alert('Límite alcanzado', data.message, [
+        { text: 'Ver Alira+', onPress: () => router.push('/(tabs)/premium') },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
+    } else {
+      Alert.alert('Error', data?.message || 'No se pudo añadir.');
+    }
   };
 
   const añadirWishreads = async (item: SearchResult) => {
@@ -82,11 +114,11 @@ export default function BuscarScreen() {
   };
 
   const renderItem = ({ item }: { item: SearchResult }) => {
-    const id        = item.google_books_id;
-    const inCol     = addedCol.has(id);
-    const inWish    = addedWish.has(id);
-    const loadingC  = addingCol === id;
-    const loadingW  = addingWish === id;
+    const id       = item.google_books_id;
+    const inCol    = addedCol.has(id);
+    const inWish   = addedWish.has(id);
+    const loadingC = addingCol === id;
+    const loadingW = addingWish === id;
 
     return (
       <View style={s.card}>
@@ -99,26 +131,25 @@ export default function BuscarScreen() {
           {item.anio_publicacion ? <Text style={s.year}>{item.anio_publicacion}</Text> : null}
           {item.descripcion ? <Text style={s.desc} numberOfLines={2}>{item.descripcion}</Text> : null}
           <View style={s.actions}>
-            {/* Añadir a colección */}
             <TouchableOpacity
               style={[s.addBtn, (inCol || loadingC) && s.addBtnDone]}
               onPress={() => añadirColeccion(item)}
-              disabled={inCol || loadingC}
-            >
+              disabled={inCol || !!loadingC}>
               {loadingC
                 ? <ActivityIndicator size="small" color={Colors.bg} />
-                : <Text style={s.addBtnText}>{inCol ? '✓ Colección' : '+ Colección'}</Text>}
+                : <Text style={[s.addBtnText, inCol && { color: Colors.success }]}>
+                    {inCol ? '✓ Añadido' : '+ Colección'}
+                  </Text>}
             </TouchableOpacity>
-
-            {/* Añadir a Wishreads */}
             <TouchableOpacity
               style={[s.wishBtn, (inWish || loadingW) && s.wishBtnDone]}
               onPress={() => añadirWishreads(item)}
-              disabled={inWish || loadingW}
-            >
+              disabled={inWish || !!loadingW}>
               {loadingW
                 ? <ActivityIndicator size="small" color="#ffd466" />
-                : <Text style={s.wishBtnText}>{inWish ? '✓ Wishreads' : '✨ Wishreads'}</Text>}
+                : <Text style={[s.wishBtnText, inWish && { opacity: 0.5 }]}>
+                    {inWish ? '✓ Wishreads' : '✨ Wishreads'}
+                  </Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -133,18 +164,22 @@ export default function BuscarScreen() {
         <Text style={s.headerSub}>Añade a tu colección o Wishreads</Text>
       </View>
 
+      {/* Barra de búsqueda + escáner */}
       <View style={s.searchRow}>
         <TextInput
-          ref={inputRef}
           style={s.searchInput}
           placeholder="Título, autor o ISBN..."
           placeholderTextColor={Colors.muted}
           value={query} onChangeText={setQuery}
-          onSubmitEditing={buscar}
+          onSubmitEditing={() => buscar()}
           returnKeyType="search"
           autoCapitalize="none" autoCorrect={false}
         />
-        <TouchableOpacity style={s.searchBtn} onPress={buscar} disabled={loading}>
+        {/* Botón escáner ISBN */}
+        <TouchableOpacity style={s.scanBtn} onPress={abrirScanner}>
+          <Text style={{ fontSize: 20 }}>📷</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.searchBtn} onPress={() => buscar()} disabled={loading}>
           {loading
             ? <ActivityIndicator size="small" color={Colors.bg} />
             : <Text style={s.searchBtnText}>Buscar</Text>}
@@ -155,7 +190,9 @@ export default function BuscarScreen() {
         <View style={s.empty}>
           <Text style={{ fontSize: 52, marginBottom: 14 }}>📖</Text>
           <Text style={s.emptyTitle}>Busca un libro</Text>
-          <Text style={s.emptySub}>Escribe el título o autor arriba{'\n'}y pulsa Buscar</Text>
+          <Text style={s.emptySub}>
+            Escribe el título o autor{'\n'}o escanea el código de barras 📷
+          </Text>
         </View>
       )}
 
@@ -165,6 +202,39 @@ export default function BuscarScreen() {
         renderItem={renderItem}
         contentContainerStyle={{ paddingHorizontal: Spacing.lg, paddingBottom: 40 }}
       />
+
+      {/* ── Modal escáner ISBN ── */}
+      <Modal visible={scannerVisible} animationType="slide" onRequestClose={() => setScannerVisible(false)}>
+        <View style={s.scannerContainer}>
+          <View style={s.scannerHeader}>
+            <Text style={s.scannerTitle}>📷 Escanear ISBN</Text>
+            <TouchableOpacity
+              style={s.scannerCloseBtn}
+              onPress={() => setScannerVisible(false)}>
+              <Text style={s.scannerCloseTxt}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {permission?.granted && (
+            <CameraView
+              style={s.camera}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'code128'] }}
+              onBarcodeScanned={onBarCodeScanned}
+            >
+              {/* Marco de escaneo */}
+              <View style={s.scanOverlay}>
+                <View style={s.scanFrame} />
+                <View style={s.scanLine} />
+              </View>
+            </CameraView>
+          )}
+
+          <Text style={s.scannerHint}>
+            Apunta la cámara al código de barras del libro
+          </Text>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -174,12 +244,14 @@ const s = StyleSheet.create({
   header:        { paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 8 },
   headerTitle:   { fontSize: 22, fontWeight: '800', color: Colors.text },
   headerSub:     { fontSize: 13, color: Colors.muted, marginTop: 2 },
-  searchRow:     { flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, marginBottom: 14 },
+  searchRow:     { flexDirection: 'row', gap: 8, paddingHorizontal: Spacing.lg, marginBottom: 14 },
   searchInput:   { flex: 1, backgroundColor: Colors.card, borderRadius: Radius.md,
                    borderWidth: 1, borderColor: Colors.border,
                    color: Colors.text, padding: 13, fontSize: 15 },
+  scanBtn:       { backgroundColor: Colors.card, borderRadius: Radius.md, borderWidth: 1,
+                   borderColor: Colors.border, width: 48, alignItems: 'center', justifyContent: 'center' },
   searchBtn:     { backgroundColor: Colors.accent, borderRadius: Radius.md,
-                   paddingHorizontal: 18, justifyContent: 'center', alignItems: 'center' },
+                   paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
   searchBtnText: { color: Colors.bg, fontWeight: '800', fontSize: 15 },
   empty:         { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 80 },
   emptyTitle:    { fontSize: 18, fontWeight: '700', color: Colors.text, marginBottom: 8 },
@@ -188,8 +260,7 @@ const s = StyleSheet.create({
                    borderRadius: Radius.lg, padding: 12, marginBottom: 12,
                    borderWidth: 1, borderColor: Colors.border },
   cover:         { width: 74, height: 110, borderRadius: Radius.sm },
-  nocover:       { backgroundColor: 'rgba(255,255,255,0.05)',
-                   justifyContent: 'center', alignItems: 'center' },
+  nocover:       { backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
   info:          { flex: 1, gap: 4 },
   title:         { fontSize: 15, fontWeight: '700', color: Colors.text },
   author:        { fontSize: 13, color: Colors.muted },
@@ -204,6 +275,25 @@ const s = StyleSheet.create({
   wishBtn:       { backgroundColor: 'rgba(255,200,80,.12)', borderRadius: Radius.md,
                    paddingHorizontal: 12, paddingVertical: 7,
                    borderWidth: 1, borderColor: 'rgba(255,200,80,.3)' },
-  wishBtnDone:   { backgroundColor: 'rgba(255,200,80,.22)', borderColor: 'rgba(255,200,80,.5)' },
+  wishBtnDone:   { opacity: 0.6 },
   wishBtnText:   { color: '#ffd466', fontSize: 12, fontWeight: '700' },
+
+  // Escáner
+  scannerContainer: { flex: 1, backgroundColor: '#000' },
+  scannerHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                      padding: 20, paddingTop: 60 },
+  scannerTitle:     { fontSize: 18, fontWeight: '700', color: '#fff' },
+  scannerCloseBtn:  { backgroundColor: 'transparent', borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.3)', borderRadius: 10,
+                      paddingHorizontal: 14, paddingVertical: 8 },
+  scannerCloseTxt:  { color: '#fff', fontSize: 14 },
+  camera:           { flex: 1 },
+  scanOverlay:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scanFrame:        { width: 260, height: 160, borderWidth: 2,
+                      borderColor: 'rgba(122,162,255,0.6)', borderRadius: 12 },
+  scanLine:         { position: 'absolute', left: '10%', right: '10%', height: 2,
+                      backgroundColor: 'rgba(122,162,255,0.8)',
+                      shadowColor: Colors.accent, shadowOpacity: 0.8, shadowRadius: 4 },
+  scannerHint:      { color: '#a9b7d6', fontSize: 14, textAlign: 'center',
+                      padding: 20, paddingBottom: 40 },
 });
