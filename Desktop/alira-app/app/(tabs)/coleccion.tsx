@@ -164,13 +164,6 @@ export default function ColeccionScreen() {
             <Chip label={`${stats.pendiente} pend.`} color={Colors.warning} />
           </View>
         </View>
-        <TouchableOpacity
-          style={{ paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' }}
-          onPress={toggleVista}>
-          <Text style={{ fontSize: 22, color: Colors.text, opacity: 0.8 }}>
-            {vista === 'lista' ? '⊞' : '☰'}
-          </Text>
-        </TouchableOpacity>
         <TouchableOpacity style={s.exportBtn} onPress={exportar}>
           <Text style={s.exportBtnText}>⬇ Excel</Text>
         </TouchableOpacity>
@@ -201,8 +194,8 @@ export default function ColeccionScreen() {
       </View>
 
       {/* Filtros rápidos de estado */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filtersRow} style={{ flexGrow: 0 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap',
+                    paddingHorizontal: Spacing.lg, gap: 8, marginBottom: 10 }}>
         {ESTADOS_FILTER.map(f => (
           <TouchableOpacity key={f.value}
             style={[s.chip, filterEstado === f.value && s.chipActive]}
@@ -210,15 +203,23 @@ export default function ColeccionScreen() {
             <Text style={[s.chipText, filterEstado === f.value && { color: Colors.accent }]}>{f.label}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
-      <Text style={s.countText}>
-        {filtered.length} {filtered.length === 1 ? 'libro' : 'libros'}
-        {activeFilters > 0 || search ? ' encontrados' : ' en total'}
-        {activeFilters > 0 && (
-          <Text onPress={resetFilters} style={{ color: Colors.accent }}> · Limpiar filtros</Text>
-        )}
-      </Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between',
+               alignItems: 'center', paddingHorizontal: Spacing.lg, marginBottom: 8 }}>
+        <Text style={{ color: Colors.muted, fontSize: 12 }}>
+          {filtered.length} {filtered.length === 1 ? 'libro' : 'libros'}
+          {activeFilters > 0 || search ? ' encontrados' : ' en total'}
+          {activeFilters > 0 && (
+            <Text onPress={resetFilters} style={{ color: Colors.accent }}> · Limpiar</Text>
+          )}
+        </Text>
+        <TouchableOpacity onPress={toggleVista}>
+          <Text style={{ fontSize: 20, color: Colors.text, opacity: 0.8 }}>
+            {vista === 'lista' ? '⊞' : '☰'}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {filtered.length === 0
         ? <View style={s.centered}>
