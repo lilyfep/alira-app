@@ -45,6 +45,10 @@ export default function RachaWidget({ compact = false }: Props) {
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [rachaD,     setRachaD]     = useState<{racha_actual: number; leido_hoy: boolean} | null>(null);
+  const [mes, setMes] = useState<{
+    year: number; month: number; hoy: number;
+    dias_marcados: number[]; total_mes: number;
+  } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -56,6 +60,9 @@ export default function RachaWidget({ compact = false }: Props) {
     setLoading(false);
     const { ok: okD, data: dD } = await api.getRachaDiaria();
     if (okD) setRachaD(dD.data);
+
+    const { ok: okM, data: dM } = await api.getRachaDiariaMes();
+    if (okM) setMes(dM.data);
   };
 
   useEffect(() => { load(); }, []);
@@ -63,7 +70,6 @@ export default function RachaWidget({ compact = false }: Props) {
   const handleSave = async () => {
     if (!data) return;
     setSaving(true);
-    const hoy = new Date();
     await api.setObjetivoMensual(hoy.getFullYear(), hoy.getMonth() + 1, objetivo);
     setSaving(false);
     setSaved(true);
@@ -126,6 +132,7 @@ export default function RachaWidget({ compact = false }: Props) {
         fireColor={fireColor}
         pct={pct}
         enRiesgo={enRiesgo}
+        mes={mes}
       />
     </>
   );
@@ -210,19 +217,23 @@ export default function RachaWidget({ compact = false }: Props) {
         fireColor={fireColor}
         pct={pct}
         enRiesgo={enRiesgo}
+        mes={mes}
       />
     </>
   );
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
+
 function RachaModal({ visible, onClose, data, objetivo, setObjetivo, onSave,
-  saving, saved, fireColor, pct, enRiesgo }: {
+  saving, saved, fireColor, pct, enRiesgo, mes }: {
   visible: boolean; onClose: () => void; data: RachaData;
   objetivo: number; setObjetivo: (n: number) => void;
   onSave: () => void; saving: boolean; saved: boolean;
   fireColor: string; pct: number; enRiesgo: boolean;
+  mes: { year: number; month: number; hoy: number; dias_marcados: number[]; total_mes: number } | null;
 }) {
+
   const hoy = new Date();
   const mesNombre = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
     'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][hoy.getMonth()];
@@ -323,11 +334,82 @@ function RachaModal({ visible, onClose, data, objetivo, setObjetivo, onSave,
             </ScrollView>
           </View>
 
+          {/* Calendario racha diaria */}
+          {mes && (
+            <View style={ms.section}>
+              <Text style={ms.sectionTitle}>📅 Racha diaria — {
+                ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                 'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes.month - 1]
+              }</Text>
+              <Text style={ms.sectionSub}>
+                {mes.total_mes} {mes.total_mes === 1 ? 'día leído' : 'días leídos'} este mes
+              </Text>
+              <CalendarioDias mes={mes} />
+            </View>
+          )}
+
         </Pressable>
       </Pressable>
     </Modal>
   );
 }
+
+function CalendarioDias({ mes }: {
+  mes: { year: number; month: number; hoy: number; dias_marcados: number[]; total_mes: number }
+}) {
+  const diasEnMes = new Date(mes.year, mes.month, 0).getDate();
+  const primerDia = new Date(mes.year, mes.month - 1, 1).getDay();
+  const offset = primerDia === 0 ? 6 : primerDia - 1; // lunes primero
+
+  const dias = [];
+  for (let i = 0; i < offset; i++) dias.push(null);
+  for (let i = 1; i <= diasEnMes; i++) dias.push(i);
+
+  return (
+    <View style={cal.grid}>
+      {['L','M','X','J','V','S','D'].map(d => (
+        <Text key={d} style={cal.dayLabel}>{d}</Text>
+      ))}
+      {dias.map((dia, i) => {
+        if (!dia) return <View key={`e-${i}`} style={cal.cell} />;
+        const marcado = mes.dias_marcados.includes(dia);
+        const esHoy   = dia === mes.hoy;
+        return (
+          <View key={dia} style={[
+            cal.cell,
+            marcado && cal.cellMarcado,
+            esHoy && !marcado && cal.cellHoy,
+          ]}>
+            <Text style={[
+              cal.cellText,
+              marcado && cal.cellTextMarcado,
+              esHoy && !marcado && cal.cellTextHoy,
+            ]}>
+              {dia}
+            </Text>
+            {marcado && <Text style={cal.flame}>🔥</Text>}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const cal = StyleSheet.create({
+  grid:            { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 },
+  dayLabel:        { width: '13%', textAlign: 'center', fontSize: 10,
+                     fontWeight: '700', color: Colors.muted, marginBottom: 4 },
+  cell:            { width: '13%', aspectRatio: 1, borderRadius: 8,
+                     alignItems: 'center', justifyContent: 'center',
+                     backgroundColor: 'rgba(255,255,255,0.04)' },
+  cellMarcado:     { backgroundColor: 'rgba(255,107,53,0.2)',
+                     borderWidth: 1, borderColor: 'rgba(255,107,53,0.4)' },
+  cellHoy:         { borderWidth: 1.5, borderColor: Colors.accent },
+  cellText:        { fontSize: 11, fontWeight: '600', color: Colors.muted },
+  cellTextMarcado: { color: '#FF6B35', fontWeight: '800' },
+  cellTextHoy:     { color: Colors.accent, fontWeight: '800' },
+  flame:           { fontSize: 8, position: 'absolute', bottom: 1, right: 2 },
+});
 
 // ── Estilos widget ────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
