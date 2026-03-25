@@ -137,6 +137,41 @@ export const api = {
     apiFetch(`/wishreads/${id}`, { method: 'DELETE' }),
 
   // Perfil
+  // Bibliotecas
+  getLibraries: () =>
+    apiFetch('/libraries/'),
+
+  getLibrary: (id: number) =>
+    apiFetch(`/libraries/${id}`),
+
+  createLibrary: (nombre: string, emoji: string, color: string) =>
+    apiFetch('/libraries/', {
+      method: 'POST',
+      body: JSON.stringify({ nombre, emoji, color }),
+    }),
+
+  updateLibrary: (id: number, payload: { nombre?: string; emoji?: string; color?: string }) =>
+    apiFetch(`/libraries/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteLibrary: (id: number) =>
+    apiFetch(`/libraries/${id}`, { method: 'DELETE' }),
+
+  addBookToLibrary: (libraryId: number, bookId: number) =>
+    apiFetch(`/libraries/${libraryId}/books`, {
+      method: 'POST',
+      body: JSON.stringify({ book_id: bookId }),
+    }),
+
+  removeBookFromLibrary: (libraryId: number, bookId: number) =>
+    apiFetch(`/libraries/${libraryId}/books/${bookId}`, { method: 'DELETE' }),
+
+  getBookLibraries: (bookId: number) =>
+    apiFetch(`/libraries/book/${bookId}`),
+
+  // Perfil
   getProfile: () => apiFetch('/profile/'),
 
   updateEmail: (email: string, password: string) =>
@@ -156,4 +191,30 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ password, confirmacion: 'ELIMINAR' }),
     }),
+  getStats: () => apiFetch('/stats/'),
+
+  // Racha diaria
+
+  getRachaDiaria: () =>
+    apiFetch('/stats/racha-diaria'),
+
+  marcarLeerHoy: () =>
+    apiFetch('/stats/leer-hoy', { method: 'POST' }),
+
+  desmarcarLeerHoy: () =>
+    apiFetch('/stats/leer-hoy', { method: 'DELETE' }),
+
+  getResumenAnual: (year: number, objetivo?: number) =>
+    apiFetch(`/books/resumen/${year}${objetivo ? `?objetivo=${objetivo}` : ''}`),
+
+  // Racha mensual
+  getRachaMensual: () =>
+    apiFetch('/stats/racha-mensual'),
+
+  setObjetivoMensual: (year: number, month: number, objetivo: number) =>
+    apiFetch('/stats/racha-mensual/objetivo', {
+      method: 'POST',
+      body: JSON.stringify({ year, month, objetivo }),
+    }),
+
 };
