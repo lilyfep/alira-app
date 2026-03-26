@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Animated, SafeAreaView, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View
+  Share, StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -192,6 +192,7 @@ export default function RachasScreen() {
           )}
 
          {/* ══ ESCUDOS Y REFERIDOS ══ */}
+        <View style={s.section}>
          {referral && (
            <>
              {/* Escudos disponibles */}
@@ -214,7 +215,7 @@ export default function RachasScreen() {
                <TouchableOpacity
                  style={s.refCode}
                  onPress={() => Share.share({
-                  message: `¡Únete a Alira con mi código ${referral.referral_code} y empieza a organizar tu biblioteca! 📚 https://aliraspace.com`,
+                  message: `🔥 Llevo ${rachaD?.racha_actual ?? 0} días seguidos leyendo y no pienso parar. ¿Te unes al reto? Usa mi código ${referral.referral_code} en Alira y empieza tu racha 📚 https://aliraspace.com`,
                  })}
                >
                  <Text style={s.refCodeText}>{referral.referral_code}</Text>
@@ -247,6 +248,7 @@ export default function RachasScreen() {
              )}
            </>
          )}
+        </View>
 
         {/* Divisor */}
         <View style={s.divider} />
@@ -344,8 +346,10 @@ export default function RachasScreen() {
             </View>
           )}
         </View>
+       </View>
 
-        <View style={{ height: 40 }} />
+       <View style={{ height: 40 }} />
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -401,22 +405,7 @@ const cal = StyleSheet.create({
   cellText: { fontSize: 12, fontWeight: '500', color: Colors.muted },
   flame:    { fontSize: 8, position: 'absolute', bottom: 1, right: 2 },
   dot:      { width: 4, height: 4, borderRadius: 2, position: 'absolute', bottom: 3 },
-  refCard:      { backgroundColor: Colors.card, borderRadius: Radius.lg,
-                  borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 14 },
-  refTitle:     { fontSize: 12, fontWeight: '700', color: Colors.muted,
-                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
-  refCode:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-                  backgroundColor: 'rgba(100,180,255,0.08)', borderRadius: Radius.md,
-                  borderWidth: 1, borderColor: 'rgba(100,180,255,0.25)',
-                  paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10 },
-  refCodeText:  { fontSize: 22, fontWeight: '900', color: '#64B4FF', letterSpacing: 2 },
-  refCodeShare: { fontSize: 13, fontWeight: '700', color: Colors.accent },
-  refSub:       { fontSize: 12, color: Colors.muted, lineHeight: 18 },
-  hisRow:       { flexDirection: 'row', alignItems: 'center', gap: 12,
-                  paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  hisMotivo:    { fontSize: 13, fontWeight: '700' },
-  hisFecha:     { fontSize: 11, color: Colors.muted, marginTop: 2 },
-  hisNum:       { fontSize: 13, fontWeight: '800' },
+  
 });
 
 // ── Estilos ───────────────────────────────────────────────────────────────────
@@ -525,4 +514,20 @@ const s = StyleSheet.create({
   mesBadgeText:  { fontSize: 12, fontWeight: '600', color: Colors.muted },
   mesBadgeLabel: { fontSize: 10, color: Colors.muted, marginTop: 4 },
   mesBadgeCount: { fontSize: 9, color: '#ffd466', fontWeight: '700' },
+  refCard:      { backgroundColor: Colors.card, borderRadius: Radius.lg,
+                  borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 14 },
+  refTitle:     { fontSize: 12, fontWeight: '700', color: Colors.muted,
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  refCode:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                  backgroundColor: 'rgba(100,180,255,0.08)', borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: 'rgba(100,180,255,0.25)',
+                  paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10 },
+  refCodeText:  { fontSize: 22, fontWeight: '900', color: '#64B4FF', letterSpacing: 2 },
+  refCodeShare: { fontSize: 13, fontWeight: '700', color: Colors.accent },
+  refSub:       { fontSize: 12, color: Colors.muted, lineHeight: 18 },
+  hisRow:       { flexDirection: 'row', alignItems: 'center', gap: 12,
+                  paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  hisMotivo:    { fontSize: 13, fontWeight: '700' },
+  hisFecha:     { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  hisNum:       { fontSize: 13, fontWeight: '800' },
 });
