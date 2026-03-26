@@ -1,9 +1,7 @@
 // app/(tabs)/perfil.tsx
-// Dashboard de estadísticas + info de perfil + ajustes de cuenta
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, clearSession } from '@/lib/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -11,97 +9,31 @@ import {
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-interface Book {
-  id: number; title: string; author: string; estado: string;
-  valoracion: number; category: string; fecha_fin: string; year: string;
-}
-
-// ── Helpers de stats ──────────────────────────────────────────────────────────
-function calcStats(books: Book[], objetivo: number) {
-  const leidos = books.filter(b => b.estado === 'leido');
-  const thisYear = new Date().getFullYear();
-
-  // Leídos por año
-  const porAnio: Record<number, number> = {};
-  leidos.forEach(b => {
-    const y = b.fecha_fin
-      ? new Date(b.fecha_fin).getFullYear()
-      : b.year ? parseInt(b.year) : null;
-    if (y && y >= thisYear - 4) porAnio[y] = (porAnio[y] || 0) + 1;
-  });
-
-  // Géneros top 5
-  const generos: Record<string, number> = {};
-  leidos.forEach(b => {
-    if (b.category) generos[b.category] = (generos[b.category] || 0) + 1;
-  });
-  const topGeneros = Object.entries(generos).sort((a,b) => b[1]-a[1]).slice(0,5);
-
-  // Autores top 5
-  const autores: Record<string, number> = {};
-  leidos.forEach(b => {
-    if (b.author) autores[b.author] = (autores[b.author] || 0) + 1;
-  });
-  const topAutores = Object.entries(autores).sort((a,b) => b[1]-a[1]).slice(0,5);
-
-  // Valoración media
-  const conVal = leidos.filter(b => b.valoracion > 0);
-  const mediaVal = conVal.length
-    ? conVal.reduce((s,b) => s + b.valoracion, 0) / conVal.length
-    : 0;
-
-  // Progreso año actual
-  const leidosEsteAnio = leidos.filter(b => {
-    if (!b.fecha_fin) return false;
-    return new Date(b.fecha_fin).getFullYear() === thisYear;
-  }).length;
-
-  return { leidos: leidos.length, porAnio, topGeneros, topAutores, mediaVal, leidosEsteAnio };
-}
-
-// ── Componente principal ──────────────────────────────────────────────────────
 export default function PerfilScreen() {
-  const [profile, setProfile] = useState<any>(null);
-  const [books, setBooks]     = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [objetivo, setObjetivo] = useState('12');
-  const [editingObj, setEditingObj] = useState(false);
+  const [profile,    setProfile]    = useState<any>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [isPremium,  setIsPremium]  = useState(false);
 
-  // Cambiar email
   const [newEmail,    setNewEmail]    = useState('');
   const [emailPass,   setEmailPass]   = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
-
-  // Cambiar contraseña
   const [passActual,  setPassActual]  = useState('');
   const [passNuevo,   setPassNuevo]   = useState('');
   const [passConfirm, setPassConfirm] = useState('');
   const [savingPass,  setSavingPass]  = useState(false);
 
   const loadData = useCallback(async () => {
-    const [profRes, booksRes, savedObj] = await Promise.all([
-      api.getProfile(),
-      api.getBooks(),
-      AsyncStorage.getItem('objetivo_anual'),
-    ]);
-    if (profRes.ok)  setProfile(profRes.data.data);
-    if (booksRes.ok) setBooks(booksRes.data.data?.books || []);
-    if (savedObj)    setObjetivo(savedObj);
-    if (profRes.data?.message === 'Sesión expirada') router.replace('/');
+    const { ok, data } = await api.getProfile();
+    if (ok) {
+      setProfile(data.data);
+      const u = data.data?.user;
+      setIsPremium(u?.is_premium === true || (u?.plan && u.plan !== 'free'));
+    }
+    if (data?.message === 'Sesión expirada') router.replace('/login');
     setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  const saveObjetivo = async (val: string) => {
-    const n = parseInt(val);
-    if (!isNaN(n) && n > 0) {
-      await AsyncStorage.setItem('objetivo_anual', String(n));
-      setObjetivo(String(n));
-    }
-    setEditingObj(false);
-  };
 
   const handleLogout = async () => {
     await api.logout().catch(() => {});
@@ -139,21 +71,14 @@ export default function PerfilScreen() {
             const { ok, data } = await api.deleteAccount(pass);
             if (ok) { await clearSession(); router.replace('/login'); }
             else Alert.alert('Error', data?.message || 'Contraseña incorrecta.');
-          }, 'secure-text')
-       }]);
+          }, 'secure-text') }]);
   };
 
   if (loading) return (
     <View style={s.centered}><ActivityIndicator size="large" color={Colors.accent} /></View>
   );
 
-  const user  = profile?.user;
-  const stats = calcStats(books, parseInt(objetivo) || 12);
-  const objNum = parseInt(objetivo) || 12;
-  const progreso = Math.min(stats.leidosEsteAnio / objNum, 1);
-  const thisYear = new Date().getFullYear();
-  const maxAnio  = Math.max(...Object.values(stats.porAnio), 1);
-  const años     = Array.from({ length: 5 }, (_, i) => thisYear - 4 + i);
+  const user     = profile?.user;
   const fechaReg = user?.fecha_registro
     ? new Date(user.fecha_registro).toLocaleDateString('es-ES') : '—';
 
@@ -161,7 +86,7 @@ export default function PerfilScreen() {
     <SafeAreaView style={s.container}>
       <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Header */}
+        {/* HEADER */}
         <View style={s.headerRow}>
           <Text style={s.pageTitle}>👤 Mi perfil</Text>
           <TouchableOpacity onPress={handleLogout} style={s.logoutBtn}>
@@ -169,171 +94,38 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── DASHBOARD ─────────────────────────────────────────────────── */}
+        {/* ACCESOS RÁPIDOS */}
+        <NavBtn icon="📊" title="Mis estadísticas"
+          sub="Géneros, autores, racha y más"
+          onPress={() => router.push('/stats')} />
 
-        {/* Objetivo anual */}
-        <Card>
-          <View style={s.objRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.objTitle}>🎯 Objetivo {thisYear}</Text>
-              <Text style={s.objSub}>
-                {stats.leidosEsteAnio} de {objNum} libros leídos
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => setEditingObj(true)} style={s.editObjBtn}>
-              <Text style={{ color: Colors.accent, fontSize: 13, fontWeight: '700' }}>
-                {editingObj ? '' : `Cambiar`}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        <NavBtn icon="🗂" title="Mis Bibliotecas"
+          sub="Organiza tu colección como quieras"
+          onPress={() => router.push('/bibliotecas')} />
 
-          {editingObj ? (
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-              <TextInput style={[s.input, { flex: 1 }]}
-                value={objetivo} onChangeText={setObjetivo}
-                keyboardType="number-pad" placeholder="Ej: 20"
-                placeholderTextColor={Colors.muted} autoFocus />
-              <TouchableOpacity style={s.saveSmallBtn} onPress={() => saveObjetivo(objetivo)}>
-                <Text style={{ color: Colors.bg, fontWeight: '800' }}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+        <NavBtn icon="🌐" title="Mi perfil público"
+          sub={`aliraspace.com/@${user?.nombre || ''}`}
+          onPress={() => Linking.openURL(`https://www.aliraspace.com/@${user?.nombre || ''}`)} />
 
-          {/* Barra de progreso */}
-          <View style={s.progressBg}>
-            <View style={[s.progressFill, { width: `${progreso * 100}%` as any }]} />
-          </View>
-          <Text style={s.progressPct}>
-            {Math.round(progreso * 100)}% completado{stats.leidosEsteAnio >= objNum ? ' 🎉' : ''}
-          </Text>
+        <NavBtn icon="⭐" title="Alira+"
+          sub={isPremium ? 'Gestionar suscripción' : 'Desbloquea todo sin límites'}
+          onPress={() => router.push('/premium')} />
 
-          <TouchableOpacity
-            style={{ backgroundColor: Colors.accent + '16', borderRadius: Radius.md,
-                    borderWidth: 1, borderColor: Colors.accent + '33',
-                    padding: 14, alignItems: 'center', marginTop: 12 }}
-            onPress={() => router.push(`/resumen/${new Date().getFullYear()}`)}>
-            <Text style={{ color: Colors.accent, fontSize: 15, fontWeight: '700' }}>
-              📖 Ver resumen {new Date().getFullYear()}
-            </Text>
-          </TouchableOpacity>
-        </Card>
-
-        {/* Acceso a Mis Bibliotecas */}
-        <TouchableOpacity
-          style={{ backgroundColor: Colors.card, borderRadius: Radius.md,
-                  borderWidth: 1, borderColor: Colors.border,
-                  padding: 14, alignItems: 'center', marginBottom: 14 }}
-          onPress={() => router.push('/bibliotecas')}>
-          <Text style={{ color: Colors.text, fontSize: 15, fontWeight: '700' }}>
-            🗂 Mis Bibliotecas
-          </Text>
-        </TouchableOpacity>
-
-        {/* Acceso a Premium */}
-        <TouchableOpacity
-          style={{ backgroundColor: Colors.warning + '16', borderRadius: Radius.md,
-                  borderWidth: 1, borderColor: Colors.warning + '33',
-                  padding: 14, alignItems: 'center', marginBottom: 14 }}
-          onPress={() => router.push('/(tabs)/premium')}>
-          <Text style={{ color: Colors.warning, fontSize: 15, fontWeight: '700' }}>
-            ⭐ Alira+ — Ver planes
-          </Text>
-        </TouchableOpacity>
-
-        {/* Acceso a Admin — solo visible si es admin */}
         {user?.es_admin && (
-          <TouchableOpacity
-            style={{ backgroundColor: Colors.accent + '16', borderRadius: Radius.md,
-                    borderWidth: 1, borderColor: Colors.accent + '33',
-                    padding: 14, alignItems: 'center', marginBottom: 14 }}
-            onPress={() => router.push('/(tabs)/admin')}>
-            <Text style={{ color: Colors.accent, fontSize: 15, fontWeight: '700' }}>
-              ⚡ Panel Admin
-            </Text>
-          </TouchableOpacity>
+          <NavBtn icon="⚡" title="Panel de administración"
+            sub="Gestión de usuarios y sistema"
+            onPress={() => router.push('/admin')}
+            color="#ff9900" />
         )}
 
-        {/* Stats rápidas */}
-        <View style={s.statsGrid}>
-          <StatBox value={books.length}        label="Total libros"    color={Colors.accent} />
-          <StatBox value={stats.leidos}         label="Leídos"         color={Colors.success} />
-          <StatBox value={books.filter(b=>b.estado==='leyendo').length}  label="Leyendo"  color='#7aa2ff' />
-          <StatBox value={stats.mediaVal > 0 ? `${stats.mediaVal.toFixed(1)}⭐` : '—'}
-                   label="Val. media" color={Colors.warning} />
-        </View>
-
-        {/* Libros por año */}
-        {Object.keys(stats.porAnio).length > 0 && (
-          <Card title="📅 Libros leídos por año">
-            <View style={s.barChart}>
-              {años.map(y => {
-                const count = stats.porAnio[y] || 0;
-                const height = count > 0 ? Math.max((count / maxAnio) * 100, 8) : 4;
-                return (
-                  <View key={y} style={s.barCol}>
-                    {count > 0 && <Text style={s.barVal}>{count}</Text>}
-                    <View style={[s.bar, {
-                      height,
-                      backgroundColor: y === thisYear ? Colors.accent : Colors.accent + '44',
-                    }]} />
-                    <Text style={s.barLabel}>{String(y).slice(2)}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </Card>
-        )}
-
-        {/* Géneros */}
-        {stats.topGeneros.length > 0 && (
-          <Card title="🏷 Géneros más leídos">
-            {stats.topGeneros.map(([genero, count], i) => (
-              <View key={genero} style={s.rankRow}>
-                <Text style={s.rankNum}>{i + 1}</Text>
-                <View style={{ flex: 1 }}>
-                  <View style={s.rankBarBg}>
-                    <View style={[s.rankBarFill, {
-                      width: `${(count / stats.topGeneros[0][1]) * 100}%` as any,
-                      backgroundColor: Colors.accent + '88',
-                    }]} />
-                  </View>
-                  <Text style={s.rankLabel}>{genero}</Text>
-                </View>
-                <Text style={s.rankCount}>{count}</Text>
-              </View>
-            ))}
-          </Card>
-        )}
-
-        {/* Autores */}
-        {stats.topAutores.length > 0 && (
-          <Card title="✍️ Autores más leídos">
-            {stats.topAutores.map(([autor, count], i) => (
-              <View key={autor} style={s.rankRow}>
-                <Text style={s.rankNum}>{i + 1}</Text>
-                <View style={{ flex: 1 }}>
-                  <View style={s.rankBarBg}>
-                    <View style={[s.rankBarFill, {
-                      width: `${(count / stats.topAutores[0][1]) * 100}%` as any,
-                      backgroundColor: Colors.success + '88',
-                    }]} />
-                  </View>
-                  <Text style={s.rankLabel} numberOfLines={1}>{autor}</Text>
-                </View>
-                <Text style={s.rankCount}>{count}</Text>
-              </View>
-            ))}
-          </Card>
-        )}
-
-        {/* ── INFO ─────────────────────────────────────────────────────── */}
+        {/* INFORMACIÓN */}
         <Card title="Información">
           <InfoRow label="Usuario"       value={user?.nombre} />
           <InfoRow label="Email"         value={user?.email} />
           <InfoRow label="Miembro desde" value={fechaReg} />
         </Card>
 
-        {/* ── CAMBIAR EMAIL ─────────────────────────────────────────────── */}
+        {/* CAMBIAR EMAIL */}
         <Card title="Cambiar email">
           <TextInput style={s.input} placeholder="Nuevo email"
             placeholderTextColor={Colors.muted} value={newEmail}
@@ -344,7 +136,7 @@ export default function PerfilScreen() {
           <PrimaryBtn label="Cambiar email" loading={savingEmail} onPress={handleChangeEmail} />
         </Card>
 
-        {/* ── CAMBIAR CONTRASEÑA ────────────────────────────────────────── */}
+        {/* CAMBIAR CONTRASEÑA */}
         <Card title="Cambiar contraseña">
           <TextInput style={s.input} placeholder="Contraseña actual"
             placeholderTextColor={Colors.muted} value={passActual}
@@ -358,7 +150,7 @@ export default function PerfilScreen() {
           <PrimaryBtn label="Cambiar contraseña" loading={savingPass} onPress={handleChangePassword} />
         </Card>
 
-        {/* ── ZONA DE PELIGRO ───────────────────────────────────────────── */}
+        {/* ZONA DE PELIGRO */}
         <Card title="⚠️ Zona de peligro" danger>
           <Text style={s.dangerText}>
             Eliminar tu cuenta borrará todos tus libros y datos permanentemente.
@@ -369,13 +161,13 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         </Card>
 
-        {/* Legal */}
+        {/* LEGAL */}
         <Card title="Legal">
-          <LegalLink label="Aviso Legal"              url="https://www.aliraspace.com/aviso-legal" />
-          <LegalLink label="Política de Privacidad"   url="https://www.aliraspace.com/privacidad" />
-          <LegalLink label="Términos y Condiciones"   url="https://www.aliraspace.com/terminos" />
-          <LegalLink label="Política de Cookies"      url="https://www.aliraspace.com/cookies" />
-          </Card>
+          <LegalLink label="Aviso Legal"            url="https://www.aliraspace.com/aviso-legal" />
+          <LegalLink label="Política de Privacidad" url="https://www.aliraspace.com/privacidad" />
+          <LegalLink label="Términos y Condiciones" url="https://www.aliraspace.com/terminos" />
+          <LegalLink label="Política de Cookies"    url="https://www.aliraspace.com/cookies" />
+        </Card>
 
         <Text style={s.footer}>Alira · Tu biblioteca personal</Text>
 
@@ -385,20 +177,26 @@ export default function PerfilScreen() {
 }
 
 // ── Sub-componentes ───────────────────────────────────────────────────────────
+function NavBtn({ icon, title, sub, onPress, color }: {
+  icon: string; title: string; sub: string; onPress: () => void; color?: string;
+}) {
+  return (
+    <TouchableOpacity style={[s.navBtn, color && { borderColor: color + '33' }]} onPress={onPress}>
+      <Text style={s.navBtnIcon}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[s.navBtnText, color && { color }]}>{title}</Text>
+        <Text style={s.navBtnSub}>{sub}</Text>
+      </View>
+      <Text style={s.navBtnArrow}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
 function Card({ title, children, danger }: { title?: string; children: React.ReactNode; danger?: boolean }) {
   return (
     <View style={cs.card}>
       {title && <Text style={[cs.title, danger && { color: Colors.danger }]}>{title}</Text>}
       {children}
-    </View>
-  );
-}
-
-function StatBox({ value, label, color }: { value: any; label: string; color: string }) {
-  return (
-    <View style={[cs.statBox, { borderColor: color + '33' }]}>
-      <Text style={[cs.statVal, { color }]}>{value}</Text>
-      <Text style={cs.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -422,10 +220,8 @@ function PrimaryBtn({ label, loading, onPress }: { label: string; loading: boole
 
 function LegalLink({ label, url }: { label: string; url: string }) {
   return (
-    <TouchableOpacity
-      onPress={() => Linking.openURL(url)}
-      style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border }}
-    >
+    <TouchableOpacity onPress={() => Linking.openURL(url)}
+      style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
       <Text style={{ color: Colors.muted, fontSize: 14 }}>{label} →</Text>
     </TouchableOpacity>
   );
@@ -433,72 +229,39 @@ function LegalLink({ label, url }: { label: string; url: string }) {
 
 // ── Estilos ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: Colors.bg },
-  centered:   { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  scroll:     { padding: Spacing.lg, paddingBottom: 60 },
-  headerRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  pageTitle:  { fontSize: 22, fontWeight: '800', color: Colors.text },
-  logoutBtn:  { backgroundColor: Colors.card, borderRadius: Radius.sm, borderWidth: 1,
-                borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 7 },
-  logoutText: { color: Colors.muted, fontSize: 13, fontWeight: '600' },
-
-  // Objetivo
-  objRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  objTitle:   { fontSize: 16, fontWeight: '800', color: Colors.text },
-  objSub:     { fontSize: 13, color: Colors.muted, marginTop: 2 },
-  editObjBtn: { paddingLeft: 8 },
-  progressBg: { height: 10, backgroundColor: 'rgba(255,255,255,0.08)',
-                borderRadius: 99, overflow: 'hidden', marginBottom: 6 },
-  progressFill:{ height: 10, backgroundColor: Colors.accent, borderRadius: 99 },
-  progressPct: { fontSize: 12, color: Colors.muted },
-
-  // Stats grid
-  statsGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
-
-  // Bar chart
-  barChart:   { flexDirection: 'row', alignItems: 'flex-end', gap: 8, height: 120, marginTop: 8 },
-  barCol:     { flex: 1, alignItems: 'center', gap: 4 },
-  bar:        { width: '100%', borderRadius: 6, minHeight: 4 },
-  barVal:     { fontSize: 11, color: Colors.text, fontWeight: '700' },
-  barLabel:   { fontSize: 11, color: Colors.muted },
-
-  // Rank rows
-  rankRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  rankNum:    { fontSize: 13, fontWeight: '800', color: Colors.muted, width: 18 },
-  rankBarBg:  { height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 99,
-                marginBottom: 4, overflow: 'hidden' },
-  rankBarFill:{ height: 6, borderRadius: 99 },
-  rankLabel:  { fontSize: 13, color: Colors.text },
-  rankCount:  { fontSize: 13, fontWeight: '700', color: Colors.muted, minWidth: 24, textAlign: 'right' },
-
-  // Forms
-  input:      { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
-                borderWidth: 1, borderColor: Colors.border,
-                color: Colors.text, padding: 13, fontSize: 15, marginBottom: 10 },
-  saveSmallBtn: { backgroundColor: Colors.accent, borderRadius: Radius.md,
-                  paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
-
-  dangerText: { color: Colors.muted, fontSize: 13, lineHeight: 20, marginBottom: 14 },
-  dangerBtn:  { backgroundColor: Colors.danger + '22', borderRadius: Radius.md, borderWidth: 1,
-                borderColor: Colors.danger + '44', padding: 14, alignItems: 'center' },
-  dangerBtnText: { color: Colors.danger, fontSize: 15, fontWeight: '800' },
-  footer:     { textAlign: 'center', color: Colors.muted, fontSize: 12, marginTop: 16 },
-
-  objLabel:   { fontSize: 13, color: Colors.muted },
+  container:    { flex: 1, backgroundColor: Colors.bg },
+  centered:     { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
+  scroll:       { padding: Spacing.lg, paddingBottom: 60 },
+  headerRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  pageTitle:    { fontSize: 22, fontWeight: '800', color: Colors.text },
+  logoutBtn:    { backgroundColor: Colors.card, borderRadius: Radius.sm, borderWidth: 1,
+                  borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 7 },
+  logoutText:   { color: Colors.muted, fontSize: 13, fontWeight: '600' },
+  navBtn:       { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.card,
+                  borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border,
+                  padding: 14, marginBottom: 10 },
+  navBtnIcon:   { fontSize: 22 },
+  navBtnText:   { fontSize: 15, fontWeight: '700', color: Colors.text },
+  navBtnSub:    { fontSize: 12, color: Colors.muted, marginTop: 1 },
+  navBtnArrow:  { fontSize: 22, color: Colors.muted },
+  input:        { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: Colors.border,
+                  color: Colors.text, padding: 13, fontSize: 15, marginBottom: 10 },
+  dangerText:   { color: Colors.muted, fontSize: 13, lineHeight: 20, marginBottom: 14 },
+  dangerBtn:    { backgroundColor: Colors.danger + '22', borderRadius: Radius.md, borderWidth: 1,
+                  borderColor: Colors.danger + '44', padding: 14, alignItems: 'center' },
+  dangerBtnText:{ color: Colors.danger, fontSize: 15, fontWeight: '800' },
+  footer:       { textAlign: 'center', color: Colors.muted, fontSize: 12, marginTop: 16 },
 });
 
 const cs = StyleSheet.create({
-  card:      { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1,
-               borderColor: Colors.border, padding: Spacing.md, marginBottom: 14 },
-  title:     { fontSize: 15, fontWeight: '700', color: Colors.text, marginBottom: 14 },
-  statBox:   { flex: 1, minWidth: '45%', backgroundColor: 'rgba(255,255,255,0.03)',
-               borderRadius: Radius.md, borderWidth: 1, padding: 12, alignItems: 'center' },
-  statVal:   { fontSize: 22, fontWeight: '900' },
-  statLabel: { fontSize: 12, color: Colors.muted, marginTop: 3 },
-  infoRow:   { flexDirection: 'row', marginBottom: 10 },
-  infoLabel: { color: Colors.muted, fontSize: 14, minWidth: 110 },
-  infoValue: { color: Colors.text, fontWeight: '600', flex: 1, flexWrap: 'wrap' },
-  btn:       { backgroundColor: Colors.accent + 'cc', borderRadius: Radius.md,
-               padding: 13, alignItems: 'center', marginTop: 4 },
-  btnText:   { color: Colors.bg, fontSize: 15, fontWeight: '800' },
+  card:     { backgroundColor: Colors.card, borderRadius: Radius.lg, borderWidth: 1,
+              borderColor: Colors.border, padding: Spacing.md, marginBottom: 14 },
+  title:    { fontSize: 15, fontWeight: '700', color: Colors.text, marginBottom: 14 },
+  infoRow:  { flexDirection: 'row', marginBottom: 10 },
+  infoLabel:{ color: Colors.muted, fontSize: 14, minWidth: 110 },
+  infoValue:{ color: Colors.text, fontWeight: '600', flex: 1, flexWrap: 'wrap' },
+  btn:      { backgroundColor: Colors.accent + 'cc', borderRadius: Radius.md,
+              padding: 13, alignItems: 'center', marginTop: 4 },
+  btnText:  { color: Colors.bg, fontSize: 15, fontWeight: '800' },
 });

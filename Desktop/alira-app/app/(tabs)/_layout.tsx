@@ -1,19 +1,9 @@
 // app/(tabs)/_layout.tsx
 import { Colors } from '@/constants/theme';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { Platform, Text } from 'react-native';
 
 export default function TabLayout() {
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem('user').then(u => {
-      if (u) setIsAdmin(JSON.parse(u).is_admin === true);
-    });
-  }, []);
-
   return (
     <Tabs
       screenOptions={{
@@ -35,18 +25,8 @@ export default function TabLayout() {
       <Tabs.Screen name="coleccion" options={{ title: 'Colección', tabBarIcon: ({ focused }) => <TI e="📚" f={focused} /> }} />
       <Tabs.Screen name="wishreads" options={{ title: 'Wishreads', tabBarIcon: ({ focused }) => <TI e="✨" f={focused} /> }} />
       <Tabs.Screen name="perfil"    options={{ title: 'Perfil',    tabBarIcon: ({ focused }) => <TI e="👤" f={focused} /> }} />
-      <Tabs.Screen name="premium"   options={{ title: 'Alira+',   tabBarIcon: ({ focused }) => <TI e="⭐" f={focused} /> }} />
-
-      {/* Tab admin — solo si is_admin */}
-      <Tabs.Screen name="admin" options={
-        isAdmin
-          ? { title: 'Admin', tabBarIcon: ({ focused }) => <TI e="⚡" f={focused} /> }
-          : { href: null }
-      } />
-
-      {/* Ocultar tabs del template */}
-      <Tabs.Screen name="index"   options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="index"     options={{ href: null }} />
+      <Tabs.Screen name="explore"   options={{ href: null }} />
     </Tabs>
   );
 }

@@ -1,6 +1,7 @@
 // app/wish/[id].tsx
 // Pantalla de detalle de wishread — reemplaza el modal de wishreads
 
+import ScreenHeader from '@/components/ScreenHeader';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, apiFetch } from '@/lib/api';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -111,12 +112,7 @@ export default function WishDetailScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
 
         {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Text style={s.backText}>← Volver</Text>
-          </TouchableOpacity>
-          <Text style={s.headerTitle} numberOfLines={1}>{wish.title}</Text>
-        </View>
+        <ScreenHeader title={wish.title} />
 
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
@@ -224,12 +220,6 @@ function InfoRow({ icon, label }: { icon: string; label: string }) {
 const s = StyleSheet.create({
   container:    { flex: 1, backgroundColor: Colors.bg },
   centered:     { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
-  header:       { flexDirection: 'row', alignItems: 'center', gap: 12,
-                  paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, paddingBottom: 12,
-                  borderBottomWidth: 1, borderBottomColor: Colors.border },
-  backBtn:      { paddingRight: 4 },
-  backText:     { color: Colors.accent, fontSize: 15, fontWeight: '700' },
-  headerTitle:  { flex: 1, fontSize: 16, fontWeight: '700', color: Colors.text },
   scroll:       { padding: Spacing.lg, paddingBottom: 60 },
   topRow:       { flexDirection: 'row', gap: 14, marginBottom: 14 },
   cover:        { width: 100, height: 148, borderRadius: Radius.md },

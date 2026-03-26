@@ -45,10 +45,6 @@ export default function RachaWidget({ compact = false }: Props) {
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
   const [rachaD,     setRachaD]     = useState<{racha_actual: number; leido_hoy: boolean} | null>(null);
-  const [mes, setMes] = useState<{
-    year: number; month: number; hoy: number;
-    dias_marcados: number[]; total_mes: number;
-  } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -61,8 +57,6 @@ export default function RachaWidget({ compact = false }: Props) {
     const { ok: okD, data: dD } = await api.getRachaDiaria();
     if (okD) setRachaD(dD.data);
 
-    const { ok: okM, data: dM } = await api.getRachaDiariaMes();
-    if (okM) setMes(dM.data);
   };
 
   useEffect(() => { load(); }, []);
@@ -70,6 +64,7 @@ export default function RachaWidget({ compact = false }: Props) {
   const handleSave = async () => {
     if (!data) return;
     setSaving(true);
+    const hoy = new Date();
     await api.setObjetivoMensual(hoy.getFullYear(), hoy.getMonth() + 1, objetivo);
     setSaving(false);
     setSaved(true);
@@ -97,29 +92,36 @@ export default function RachaWidget({ compact = false }: Props) {
   const fireColor = data.mes_actual_salvado ? '#ffd466' : enRiesgo ? '#ff5b6e' : Colors.muted;
 
   // ── Modo compacto (badge para header) ────────────────────────────────────
-  if (compact) {
+
+if (compact) {
   return (
     <>
-      <TouchableOpacity style={s.badgeRow} onPress={() => setModalOpen(true)}>
-        {/* Racha mensual */}
-        <View style={s.badge}>
+      <View style={s.badgeRow}>
+        <TouchableOpacity style={s.badge} onPress={() => setModalOpen(true)}>
           <Text style={[s.badgeFire, { color: fireColor }]}>🔥</Text>
           <Text style={[s.badgeNum, { color: fireColor }]}>{data.racha}</Text>
-        </View>
-        {/* Racha diaria */}
+        </TouchableOpacity>
         {rachaD !== null && (
           <TouchableOpacity
-            style={[s.badge, { backgroundColor: rachaD.leido_hoy ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.06)' }]}
+            style={[s.badge, { 
+              backgroundColor: rachaD.leido_hoy 
+                ? 'rgba(255,107,53,0.15)' 
+                : rachaD.racha_actual > 0 
+                  ? 'rgba(255,255,255,0.08)' 
+                  : 'rgba(255,255,255,0.04)' 
+            }]}
             onPress={handleLeerHoy}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={s.badgeFire}>{rachaD.leido_hoy ? '📖' : '💤'}</Text>
-            <Text style={[s.badgeNum, { color: rachaD.leido_hoy ? '#FF6B35' : Colors.muted }]}>
+            <Text style={s.badgeFire}>
+              {rachaD.leido_hoy ? '📖' : rachaD.racha_actual > 0 ? '💤' : '😴'}
+            </Text>
+            <Text style={[s.boadgeNum, { color: rachaD.leido_hoy ? '#FF6B35' : rachaD.racha_actual > 0 ? Colors.text : Colors.muted }]}>
               {rachaD.racha_actual}d
             </Text>
           </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
       <RachaModal
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -132,11 +134,11 @@ export default function RachaWidget({ compact = false }: Props) {
         fireColor={fireColor}
         pct={pct}
         enRiesgo={enRiesgo}
-        mes={mes}
       />
     </>
   );
 }
+
   // ── Modo completo (para stats) ────────────────────────────────────────────
   return (
     <>
@@ -176,30 +178,34 @@ export default function RachaWidget({ compact = false }: Props) {
 
         {/* Badges de los últimos 12 meses */}
         <View style={s.badgesRow}>
-          {data.historial.map((mes) => (
-            <View
-              key={`${mes.year}-${mes.month}`}
-              style={[
-                s.mesBadge,
-                mes.completado && s.mesBadgeOk,
-                mes.actual && s.mesBadgeActual,
-                mes.futuro && s.mesBadgeFuturo,
-              ]}
-            >
-              <Text style={[
-                s.mesBadgeText,
-                mes.completado && { color: '#ffd466' },
-                mes.actual && { color: Colors.accent },
-                mes.futuro && { color: Colors.muted + '44' },
-              ]}>
-                {mes.completado ? '🔥' : mes.actual ? '📖' : mes.futuro ? '·' : '○'}
-              </Text>
-              <Text style={[
-                s.mesBadgeLabel,
-                mes.futuro && { color: Colors.muted + '44' },
-              ]}>
-                {MESES_CORTOS[mes.month - 1]}
-              </Text>
+          {[data.historial.slice(0, 6), data.historial.slice(6, 12)].map((fila, fi) => (
+            <View key={fi} style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+              {fila.map((mes) => (
+                <View
+                  key={`${mes.year}-${mes.month}`}
+                  style={[
+                    s.mesBadge,
+                    mes.completado && s.mesBadgeOk,
+                    mes.actual && s.mesBadgeActual,
+                    mes.futuro && s.mesBadgeFuturo,
+                  ]}
+                >
+                  <Text style={[
+                    s.mesBadgeText,
+                    mes.completado && { color: '#ffd466' },
+                    mes.actual && { color: Colors.accent },
+                    mes.futuro && { color: Colors.muted + '44' },
+                  ]}>
+                    {mes.completado ? '🔥' : mes.actual ? `${mes.leidos}/${mes.objetivo}` : mes.futuro ? '·' : '○'}
+                  </Text>
+                  <Text style={[
+                    s.mesBadgeLabel,
+                    mes.futuro && { color: Colors.muted + '44' },
+                  ]}>
+                    {MESES_CORTOS[mes.month - 1]}
+                  </Text>
+                </View>
+              ))}
             </View>
           ))}
         </View>
@@ -217,7 +223,6 @@ export default function RachaWidget({ compact = false }: Props) {
         fireColor={fireColor}
         pct={pct}
         enRiesgo={enRiesgo}
-        mes={mes}
       />
     </>
   );
@@ -231,7 +236,6 @@ function RachaModal({ visible, onClose, data, objetivo, setObjetivo, onSave,
   objetivo: number; setObjetivo: (n: number) => void;
   onSave: () => void; saving: boolean; saved: boolean;
   fireColor: string; pct: number; enRiesgo: boolean;
-  mes: { year: number; month: number; hoy: number; dias_marcados: number[]; total_mes: number } | null;
 }) {
 
   const hoy = new Date();
@@ -240,18 +244,32 @@ function RachaModal({ visible, onClose, data, objetivo, setObjetivo, onSave,
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={ms.overlay} onPress={onClose}>
-        <Pressable style={ms.sheet} onPress={e => e.stopPropagation()}>
-          <View style={ms.handle} />
-
-          {/* Header del modal */}
+     <Pressable style={ms.overlay} onPress={onClose}>
+       <Pressable style={ms.sheet} onPress={e => e.stopPropagation()}>
+         <View style={ms.handleRow}>
+           <View style={ms.handle} />
+           <TouchableOpacity style={ms.closeBtn} onPress={onClose}>
+             <Text style={ms.closeTxt}>✕</Text>
+           </TouchableOpacity>
+         </View>
+         <ScrollView 
+           showsVerticalScrollIndicator={false}
+           bounces={false}
+           nestedScrollEnabled={true}
+           style={{ flex: 1 }}
+           contentContainerStyle={{ padding: Spacing.lg, paddingBottom: 40 }}
+           onScrollEndDrag={(e) => {
+             if (e.nativeEvent.contentOffset.y < -50) onClose();
+           }}         
+         >
+            {/* Header del modal */}
           <View style={ms.head}>
             <Text style={[ms.fire, { color: fireColor }]}>🔥</Text>
             <View style={{ flex: 1 }}>
               <Text style={ms.title}>{data.racha} {data.racha === 1 ? 'mes' : 'meses'} de racha</Text>
               <Text style={ms.sub}>
                 {data.mes_actual_salvado
-                  ? '¡Este mes ya está completado!'
+                  ? '¡Objetivo mensual cumplido!'
                   : enRiesgo
                     ? `⚠️ Solo quedan ${data.dias_restantes} días`
                     : `${data.dias_restantes} días restantes en ${mesNombre}`}
@@ -307,48 +325,34 @@ function RachaModal({ visible, onClose, data, objetivo, setObjetivo, onSave,
           </View>
 
           {/* Historial badges */}
-          <View style={ms.section}>
-            <Text style={ms.sectionTitle}>Últimos 12 meses</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={ms.historialRow}>
-                {data.historial.map((mes) => (
-                  <View key={`${mes.year}-${mes.month}`} style={ms.hisMes}>
+          <View>
+            {[data.historial.slice(0, 6), data.historial.slice(6, 12)].map((fila, fi) => (
+                <View key={fi} style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                {fila.map((mes) => (
+                    <View key={`${mes.year}-${mes.month}`} style={ms.hisMes}>
                     <View style={[
-                      ms.hisBadge,
-                      mes.completado && ms.hisBadgeOk,
-                      mes.actual && ms.hisBadgeActual,
+                        ms.hisBadge,
+                        mes.completado && ms.hisBadgeOk,
+                        mes.actual && ms.hisBadgeActual,
                     ]}>
-                      <Text style={ms.hisEmoji}>
-                        {mes.completado ? '🔥' : mes.actual ? '📖' : mes.futuro ? '' : '○'}
-                      </Text>
+                        <Text style={ms.hisEmoji}>
+                        {mes.completado ? '🔥' : mes.actual ? `${mes.leidos}/${mes.objetivo}` : mes.futuro ? '·' : '○'}
+                        </Text>
                     </View>
                     <Text style={[ms.hisLabel, mes.futuro && { opacity: 0.3 }]}>
-                      {MESES_CORTOS[mes.month - 1]}
+                        {MESES_CORTOS[mes.month - 1]}
                     </Text>
                     {mes.completado && (
-                      <Text style={ms.hisCount}>{mes.leidos}</Text>
+                        <Text style={ms.hisCount}>{mes.leidos}</Text>
                     )}
-                  </View>
+                    </View>
                 ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          {/* Calendario racha diaria */}
-          {mes && (
-            <View style={ms.section}>
-              <Text style={ms.sectionTitle}>📅 Racha diaria — {
-                ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                 'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mes.month - 1]
-              }</Text>
-              <Text style={ms.sectionSub}>
-                {mes.total_mes} {mes.total_mes === 1 ? 'día leído' : 'días leídos'} este mes
-              </Text>
-              <CalendarioDias mes={mes} />
+                </View>
+            ))}
             </View>
-          )}
-
-        </Pressable>
+        
+         </ScrollView>
+       </Pressable>
       </Pressable>
     </Modal>
   );
@@ -455,9 +459,15 @@ const ms = StyleSheet.create({
   overlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet:    { backgroundColor: Colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
               borderWidth: 1, borderColor: Colors.border,
-              padding: Spacing.lg, paddingBottom: 40 },
+              height: '92%' },
   handle:   { width: 40, height: 4, backgroundColor: Colors.border,
               borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  handleRow:{ flexDirection: 'row', justifyContent: 'center',
+              alignItems: 'center', marginBottom: 20, position: 'relative' },
+  closeBtn: { position: 'absolute', right: 0, width: 32, height: 32,
+              borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.08)',
+              alignItems: 'center', justifyContent: 'center' },
+  closeTxt: { color: Colors.muted, fontSize: 14, fontWeight: '700' },
 
   head:     { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 24 },
   fire:     { fontSize: 44 },

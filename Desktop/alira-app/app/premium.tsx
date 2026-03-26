@@ -2,14 +2,14 @@
 // Pantalla Alira+ — muestra planes y abre navegador para pagar en la web
 // Sin In-App Purchase → sin comisión de Apple/Google
 
-import { router } from 'expo-router';
+import ScreenHeader from '@/components/ScreenHeader';
+import { Colors, Radius, Spacing } from '@/constants/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
   Linking, SafeAreaView, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Radius, Spacing } from '@/constants/theme';
 
 const WEB_PREMIUM = 'https://www.aliraspace.com/premium';
 
@@ -33,6 +33,7 @@ export default function PremiumScreen() {
 
   return (
     <SafeAreaView style={s.container}>
+      <ScreenHeader title="Alira+" />
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
 
         {/* Hero */}
