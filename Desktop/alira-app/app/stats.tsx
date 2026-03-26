@@ -3,7 +3,6 @@
 // Free: totales, objetivo, géneros, gráfica anual
 // Alira+: autores, idiomas, racha, mejor libro, personaje lector
 
-import RachaWidget from '@/components/RachaWidget';
 import ScreenHeader from '@/components/ScreenHeader';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api } from '@/lib/api';
@@ -81,11 +80,6 @@ export default function StatsScreen() {
             <Text style={s.resumenSub}>Ver tu resumen anual →</Text>
           </View>
           <Text style={{ fontSize: 32 }}>📖</Text>
-        </TouchableOpacity>
-
-        {/* ── RACHA MENSUAL ── */}
-        <TouchableOpacity onPress={() => router.push('/rachas')} activeOpacity={0.8}>
-          <RachaWidget compact />
         </TouchableOpacity>
 
         {/* ── STATS RÁPIDAS ── */}

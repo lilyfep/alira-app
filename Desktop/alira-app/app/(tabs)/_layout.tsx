@@ -25,8 +25,10 @@ export default function TabLayout() {
       <Tabs.Screen name="coleccion" options={{ title: 'Colección', tabBarIcon: ({ focused }) => <TI e="📚" f={focused} /> }} />
       <Tabs.Screen name="wishreads" options={{ title: 'Wishreads', tabBarIcon: ({ focused }) => <TI e="✨" f={focused} /> }} />
       <Tabs.Screen name="perfil"    options={{ title: 'Perfil',    tabBarIcon: ({ focused }) => <TI e="👤" f={focused} /> }} />
+      <Tabs.Screen name="rachas"    options={{ title: 'Rachas', tabBarIcon: ({ focused }) => <TI e="🔥" f={focused} /> }} />
       <Tabs.Screen name="index"     options={{ href: null }} />
       <Tabs.Screen name="explore"   options={{ href: null }} />
+      
     </Tabs>
   );
 }

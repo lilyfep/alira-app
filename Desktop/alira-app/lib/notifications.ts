@@ -235,6 +235,30 @@ export const programarResumenMensual = async () => {
   });
 };
 
+// ── Notificaciones de recordatorio de lectura ───────────────────
+
+export const programarRecordatorioRachaDiaria = async () => {
+  await Notifications.cancelScheduledNotificationAsync('racha_diaria').catch(() => {});
+  const ahora   = new Date();
+  const disparo = new Date();
+  disparo.setHours(21, 0, 0, 0);
+  if (disparo <= ahora) disparo.setDate(disparo.getDate() + 1);
+  const segundos = Math.floor((disparo.getTime() - ahora.getTime()) / 1000);
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'racha_diaria',
+    content: {
+      title: '🔥 ¿Ya has leído hoy?',
+      body:  'Registra tu lectura en Alira para mantener tu racha.',
+      sound: true,
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: segundos,
+      repeats: true,
+    },
+  });
+};
+
 // ── Función principal: verificar y disparar notificaciones ───────────────────
 // Se llama al abrir la app y al guardar un libro
 export const checkAndNotify = async (books: any[], options?: {
@@ -340,6 +364,8 @@ export const checkAndNotify = async (books: any[], options?: {
         await programarRecordatorioPrestados(prestados.map((b: any) => b.title));
       }
     }
+  
+    await programarRecordatorioRachaDiaria();
 
   } catch (e) {
     console.error('Error checkAndNotify:', e);
