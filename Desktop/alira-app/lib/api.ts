@@ -197,9 +197,18 @@ export const api = {
 
   getRachaDiaria: () =>
     apiFetch('/stats/racha-diaria'),
-  
+
   getRachaDiariaMes: () =>
     apiFetch('/stats/racha-diaria/mes'),
+
+  getReferralInfo: () =>
+  apiFetch('/referrals/'),
+
+  aplicarCodigo: (codigo: string) =>
+    apiFetch('/referrals/aplicar', {
+      method: 'POST',
+      body: JSON.stringify({ codigo }),
+    }),
 
   marcarLeerHoy: () =>
     apiFetch('/stats/leer-hoy', { method: 'POST' }),

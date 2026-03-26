@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Animated, SafeAreaView, ScrollView,
-  StyleSheet, Text, TouchableOpacity, View,
+  StyleSheet, Text, TouchableOpacity, View
 } from 'react-native';
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -42,17 +42,25 @@ export default function RachasScreen() {
   const [saved,    setSaved]    = useState(false);
   const [marking,  setMarking]  = useState(false);
   const [loading,  setLoading]  = useState(true);
+  const [referral, setReferral] = useState<{
+    referral_code: string;
+    total_referidos: number;
+    shields: number;
+    historial: { tipo: string; motivo: string; shields_restantes: number; fecha: string }[];
+  } | null>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const load = useCallback(async () => {
-    const [r1, r2, r3] = await Promise.all([
+    const [r1, r2, r3, r4] = await Promise.all([
       api.getRachaDiaria(),
       api.getRachaDiariaMes(),
       api.getRachaMensual(),
+      api.getReferralInfo(),
     ]);
     if (r1.ok) setRachaD(r1.data.data);
     if (r2.ok) setMes(r2.data.data);
     if (r3.ok) { setRachaM(r3.data.data); setObjetivo(r3.data.data.objetivo_mes); }
+    if (r4.ok) setReferral(r4.data.data);
     setLoading(false);
   }, []);
 
@@ -183,15 +191,62 @@ export default function RachasScreen() {
             </View>
           )}
 
-          {/* Escudos */}
-          <View style={s.escudoCard}>
-            <Text style={s.escudoIcon}>🛡️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s.escudoTitle}>Protectores de racha</Text>
-              <Text style={s.escudoSub}>Invita 3 amigos que se suscriban y gana un escudo que protege tu racha si un día no lees.</Text>
-            </View>
-          </View>
-        </View>
+         {/* ══ ESCUDOS Y REFERIDOS ══ */}
+         {referral && (
+           <>
+             {/* Escudos disponibles */}
+             <View style={[s.heroCard, { borderColor: referral.shields > 0 ? 'rgba(100,180,255,0.3)' : Colors.border }]}>
+               <Text style={{ fontSize: 48 }}>{referral.shields > 0 ? '🛡️' : '🔓'}</Text>
+               <View style={s.heroInfo}>
+                 <Text style={[s.heroNum, { color: referral.shields > 0 ? '#64B4FF' : Colors.muted }]}>
+                   {referral.shields}
+                   <Text style={s.heroNumLabel}> {referral.shields === 1 ? 'escudo' : 'escudos'}</Text>
+                 </Text>
+                 <Text style={s.heroRecord}>
+                   {referral.shields > 0 ? 'Tu racha está protegida 💪' : 'Invita amigos para conseguir escudos'}
+                 </Text>
+               </View>
+             </View>
+
+             {/* Código de referido */}
+             <View style={s.refCard}>
+               <Text style={s.refTitle}>Tu código de referido</Text>
+               <TouchableOpacity
+                 style={s.refCode}
+                 onPress={() => Share.share({
+                  message: `¡Únete a Alira con mi código ${referral.referral_code} y empieza a organizar tu biblioteca! 📚 https://aliraspace.com`,
+                 })}
+               >
+                 <Text style={s.refCodeText}>{referral.referral_code}</Text>
+                 <Text style={s.refCodeShare}>Compartir →</Text>
+               </TouchableOpacity>
+               <Text style={s.refSub}>
+                 {referral.total_referidos} {referral.total_referidos === 1 ? 'amigo invitado' : 'amigos invitados'} · Cada amigo = 1 escudo 🛡️
+               </Text>
+             </View>
+
+             {/* Historial */}
+             {referral.historial.length > 0 && (
+               <View style={s.mesesCard}>
+                 <Text style={s.mesesTitle}>Historial de escudos</Text>
+                 {referral.historial.map((h, i) => (
+                   <View key={i} style={s.hisRow}>
+                     <Text style={{ fontSize: 18 }}>{h.tipo === 'ganado' ? '🛡️' : '✨'}</Text>
+                     <View style={{ flex: 1 }}>
+                       <Text style={[s.hisMotivo, { color: h.tipo === 'ganado' ? '#64B4FF' : Colors.success }]}>
+                         {h.tipo === 'ganado' ? '+ Escudo ganado' : '+ Racha protegida'}
+                       </Text>
+                       <Text style={s.hisFecha}>{h.motivo}</Text>
+                     </View>
+                     <Text style={[s.hisNum, { color: h.tipo === 'ganado' ? '#64B4FF' : Colors.muted }]}>
+                       {h.shields_restantes} 🛡️
+                     </Text>
+                   </View>
+                 ))}
+               </View>
+             )}
+           </>
+         )}
 
         {/* Divisor */}
         <View style={s.divider} />
@@ -343,9 +398,25 @@ const cal = StyleSheet.create({
   cell:  { width: 40, height: 40, borderRadius: 8,
            alignItems: 'center', justifyContent: 'center',
            backgroundColor: 'rgba(255,255,255,0.04)' },
-    cellText: { fontSize: 12, fontWeight: '500', color: Colors.muted },
+  cellText: { fontSize: 12, fontWeight: '500', color: Colors.muted },
   flame:    { fontSize: 8, position: 'absolute', bottom: 1, right: 2 },
   dot:      { width: 4, height: 4, borderRadius: 2, position: 'absolute', bottom: 3 },
+  refCard:      { backgroundColor: Colors.card, borderRadius: Radius.lg,
+                  borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 14 },
+  refTitle:     { fontSize: 12, fontWeight: '700', color: Colors.muted,
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
+  refCode:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                  backgroundColor: 'rgba(100,180,255,0.08)', borderRadius: Radius.md,
+                  borderWidth: 1, borderColor: 'rgba(100,180,255,0.25)',
+                  paddingHorizontal: 16, paddingVertical: 14, marginBottom: 10 },
+  refCodeText:  { fontSize: 22, fontWeight: '900', color: '#64B4FF', letterSpacing: 2 },
+  refCodeShare: { fontSize: 13, fontWeight: '700', color: Colors.accent },
+  refSub:       { fontSize: 12, color: Colors.muted, lineHeight: 18 },
+  hisRow:       { flexDirection: 'row', alignItems: 'center', gap: 12,
+                  paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  hisMotivo:    { fontSize: 13, fontWeight: '700' },
+  hisFecha:     { fontSize: 11, color: Colors.muted, marginTop: 2 },
+  hisNum:       { fontSize: 13, fontWeight: '800' },
 });
 
 // ── Estilos ───────────────────────────────────────────────────────────────────
