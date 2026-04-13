@@ -228,5 +228,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ year, month, objetivo }),
     }),
+  
+  // Autores favoritos
+  getFavoriteAuthors: () =>
+    apiFetch('/authors/favorites'),
 
+  addFavoriteAuthor: (author_name: string) =>
+    apiFetch('/authors/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ author_name }),
+    }),
+
+  deleteFavoriteAuthor: (id: number) =>
+    apiFetch(`/authors/favorites/${id}`, { method: 'DELETE' }),
+  
 };

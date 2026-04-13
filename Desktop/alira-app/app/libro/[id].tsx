@@ -2,6 +2,7 @@
 // Ficha completa del libro — paridad con coleccion.html
 // + botón "Añadir a biblioteca" con bottom sheet
 // + notificaciones push al marcar como leído
+// + botón "Seguir a [autor]" para alertas de novedades
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { api, apiFetch } from '@/lib/api';
@@ -100,6 +101,10 @@ export default function LibroScreen() {
   const [loadingLibs,   setLoadingLibs]   = useState(false);
   const [togglingLibId, setTogglingLibId] = useState<number | null>(null);
 
+  // ── NUEVO: estado autor favorito ──────────────────────────────────────────
+  const [favAuthorId,    setFavAuthorId]    = useState<number | null>(null); // null = no seguido
+  const [togglingAuthor, setTogglingAuthor] = useState(false);
+
   // useFocusEffect para refrescar al volver de bibliotecas
   const loadBook = useCallback(async () => {
     const { ok, data } = await api.getBooks();
@@ -124,6 +129,18 @@ export default function LibroScreen() {
         setEditAlta(found.alta                  || '');
         setEditBaja(found.baja                  || '');
         setEditComentarios(found.comentarios    || '');
+
+        // ── NUEVO: comprobar si ya sigue a este autor ─────────────────────
+        if (found.author) {
+          const { ok: favOk, data: favData } = await api.getFavoriteAuthors();
+          if (favOk) {
+            const favs: any[] = favData.data?.favorites || [];
+            const match = favs.find(
+              f => f.author_name.toLowerCase() === found.author.toLowerCase()
+            );
+            setFavAuthorId(match ? match.id : null);
+          }
+        }
       }
     }
     setLoading(false);
@@ -209,7 +226,6 @@ export default function LibroScreen() {
             style: 'destructive',
             onPress: async () => {
               setDeleting(true);
-              // El backend ya elimina las entradas de biblioteca en cascada al borrar el libro
               const { ok } = await apiFetch(`/books/${book.id}`, { method: 'DELETE' });
               setDeleting(false);
               if (ok) router.back();
@@ -287,6 +303,24 @@ export default function LibroScreen() {
     setTogglingLibId(null);
   };
 
+  // ── NUEVO: toggle seguir autor ────────────────────────────────────────────
+  const toggleSeguirAutor = async () => {
+    if (!book?.author || togglingAuthor) return;
+    setTogglingAuthor(true);
+
+    if (favAuthorId !== null) {
+      // Dejar de seguir
+      const { ok } = await api.deleteFavoriteAuthor(favAuthorId);
+      if (ok) setFavAuthorId(null);
+    } else {
+      // Empezar a seguir
+      const { ok, data } = await api.addFavoriteAuthor(book.author);
+      if (ok) setFavAuthorId(data.data?.id ?? -1);
+    }
+
+    setTogglingAuthor(false);
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) return (
     <View style={s.centered}><ActivityIndicator size="large" color={Colors.accent} /></View>
@@ -304,6 +338,7 @@ export default function LibroScreen() {
   const showPrioridad   = editEstado === 'pendiente' || editEstado === 'leyendo';
   const idiomaCustom    = editIdioma !== '' && !IDIOMA_VALUES.includes(editIdioma);
   const categoriaCustom = editCategoria !== '' && !CATEGORIAS.includes(editCategoria);
+  const siguiendoAutor  = favAuthorId !== null;
 
   return (
     <SafeAreaView style={s.container}>
@@ -329,6 +364,23 @@ export default function LibroScreen() {
               <Text style={s.bookTitle}>{book.title}</Text>
               <Text style={s.bookAuthor}>{book.author || 'Autor desconocido'}</Text>
               {book.year ? <InfoRow icon="📅" label={book.year} /> : null}
+
+              {/* ── NUEVO: botón seguir autor (inline, bajo el nombre) ── */}
+              {book.author ? (
+                <TouchableOpacity
+                  style={[s.authorFollowBtn, siguiendoAutor && s.authorFollowBtnActive]}
+                  onPress={toggleSeguirAutor}
+                  disabled={togglingAuthor}
+                  activeOpacity={0.7}
+                >
+                  {togglingAuthor
+                    ? <ActivityIndicator size="small" color={siguiendoAutor ? Colors.accent : Colors.muted} />
+                    : <Text style={[s.authorFollowText, siguiendoAutor && s.authorFollowTextActive]}>
+                        {siguiendoAutor ? '🔔 Siguiendo' : '🔔 Seguir autor'}
+                      </Text>
+                  }
+                </TouchableOpacity>
+              ) : null}
             </View>
           </View>
 
@@ -398,45 +450,52 @@ export default function LibroScreen() {
                 placeholder="AAAA-MM-DD" placeholderTextColor={Colors.muted} />
             </View>
           </View>
-          
-          {/* ══ SECCIÓN: LIBRO ══ */}
-          <SectionLabel title="Libro" />
+
+          {/* ══ SECCIÓN: DETALLES ══ */}
+          <SectionLabel title="Detalles" />
 
           <Text style={s.fLabel}>Categoría</Text>
-          <TextInput style={s.fInput}
-            value={editCategoria}
-            onChangeText={setEditCategoria}
-            placeholder="Ej: Ficción, Biografía, Historia…"
-            placeholderTextColor={Colors.muted} />
-          {editCategoria === '' && (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14, marginTop: -8 }}>
-              {CATEGORIAS.map(c => (
-                <TouchableOpacity key={c}
-                  style={[s.pillSm]}
-                  onPress={() => setEditCategoria(c)}>
-                  <Text style={s.pillSmText}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          <View style={s.pillRow}>
+            {CATEGORIAS.map(c => (
+              <TouchableOpacity key={c}
+                style={[s.pillSm, editCategoria === c && s.pillActive]}
+                onPress={() => setEditCategoria(editCategoria === c ? '' : c)}>
+                <Text style={[s.pillSmText, editCategoria === c && { color: Colors.accent }]}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {categoriaCustom && (
+            <TextInput style={[s.fInput, { marginTop: -8 }]} value={editCategoria}
+              onChangeText={setEditCategoria} placeholder="Categoría personalizada"
+              placeholderTextColor={Colors.muted} />
           )}
 
           <Text style={s.fLabel}>Idioma</Text>
-          <TextInput style={s.fInput}
-            value={editIdioma}
-            onChangeText={setEditIdioma}
-            placeholder="Ej: Español, Inglés, Català…"
-            placeholderTextColor={Colors.muted} />
+          <View style={s.pillRow}>
+            {IDIOMAS.map(i => (
+              <TouchableOpacity key={i.value}
+                style={[s.pillSm, editIdioma === i.value && s.pillActive]}
+                onPress={() => setEditIdioma(editIdioma === i.value ? '' : i.value)}>
+                <Text style={[s.pillSmText, editIdioma === i.value && { color: Colors.accent }]}>{i.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {idiomaCustom && (
+            <TextInput style={[s.fInput, { marginTop: -8 }]} value={editIdioma}
+              onChangeText={setEditIdioma} placeholder="Idioma personalizado"
+              placeholderTextColor={Colors.muted} />
+          )}
 
           {/* ══ SECCIÓN: UBICACIÓN ══ */}
-          <SectionLabel title="¿Dónde está este libro?" />
+          <SectionLabel title="Ubicación" />
 
           <View style={s.pillRow}>
-            {UBICACIONES.map(o => (
-              <TouchableOpacity key={o.value}
-                style={[s.pill, editUbicacion === o.value && s.pillActive]}
-                onPress={() => setEditUbicacion(o.value)}>
-                <Text style={[s.pillText, editUbicacion === o.value && { color: Colors.accent }]}>
-                  {o.label}
+            {UBICACIONES.map(u => (
+              <TouchableOpacity key={u.value}
+                style={[s.pillSm, editUbicacion === u.value && s.pillActive]}
+                onPress={() => setEditUbicacion(u.value)}>
+                <Text style={[s.pillSmText, editUbicacion === u.value && { color: Colors.accent }]}>
+                  {u.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -445,9 +504,9 @@ export default function LibroScreen() {
           {editUbicacion === 'prestado' && (
             <View style={s.row2}>
               <View style={{ flex: 1 }}>
-                <Text style={s.fLabel}>¿A quién se lo prestaste?</Text>
+                <Text style={s.fLabel}>Prestado a</Text>
                 <TextInput style={s.fInput} value={editPrestadoA} onChangeText={setEditPrestadoA}
-                  placeholder="Nombre" placeholderTextColor={Colors.muted} />
+                  placeholder="Nombre..." placeholderTextColor={Colors.muted} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.fLabel}>Fecha préstamo</Text>
@@ -462,7 +521,7 @@ export default function LibroScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={s.fLabel}>Precio venta (€)</Text>
                 <TextInput style={s.fInput} value={editPrecioVenta} onChangeText={setEditPrecioVenta}
-                  placeholder="9.99" placeholderTextColor={Colors.muted} keyboardType="decimal-pad" />
+                  placeholder="0.00" placeholderTextColor={Colors.muted} keyboardType="decimal-pad" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.fLabel}>Fecha venta</Text>
@@ -477,14 +536,14 @@ export default function LibroScreen() {
 
           <View style={s.row2}>
             <View style={{ flex: 1 }}>
-              <Text style={s.fLabel}>Alta (fecha añadido)</Text>
+              <Text style={s.fLabel}>Fecha entrada</Text>
               <TextInput style={s.fInput} value={editAlta} onChangeText={setEditAlta}
                 placeholder="AAAA-MM-DD" placeholderTextColor={Colors.muted} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.fLabel}>Baja (opcional)</Text>
+              <Text style={s.fLabel}>Fecha salida</Text>
               <TextInput style={s.fInput} value={editBaja} onChangeText={setEditBaja}
-                placeholder="vendido / regalado…" placeholderTextColor={Colors.muted} />
+                placeholder="AAAA-MM-DD" placeholderTextColor={Colors.muted} />
             </View>
           </View>
 
@@ -660,6 +719,30 @@ const s = StyleSheet.create({
                      justifyContent: 'center', alignItems: 'center' },
   bookTitle:       { fontSize: 18, fontWeight: '900', color: Colors.text, marginBottom: 4 },
   bookAuthor:      { fontSize: 14, color: Colors.muted },
+
+  // ── NUEVO: botón seguir autor ─────────────────────────────────────────────
+  authorFollowBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'transparent',
+  },
+  authorFollowBtnActive: {
+    borderColor: Colors.accent + '55',
+    backgroundColor: Colors.accent + '15',
+  },
+  authorFollowText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.muted,
+  },
+  authorFollowTextActive: {
+    color: Colors.accent,
+  },
 
   // Campos
   fLabel:          { fontSize: 12, color: Colors.muted, marginBottom: 6 },
